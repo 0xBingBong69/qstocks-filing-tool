@@ -199,6 +199,22 @@ browser there's an "include analysis in upload" checkbox. The filing contract it
 unchanged (the analysis rides as a sibling key), so a backend that ignores unknown keys is
 unaffected.
 
+### One-page analyst report
+
+`qscreen_report.build_report()` synthesises everything — company context & **event
+timeline**, multi-year figures, sector ratios (reported vs computed), trends, red flags,
+the **segment breakdown** (with FX/event annotations) and the **DCF valuation + sensitivity
+grid** — into a single self-contained **HTML** document (plus a **Markdown** version).
+
+```bash
+python3 qscreen_report.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_filing.json \
+  --price 16 --shares 9200000000
+# → QNBK_report.html + QNBK_report.md
+```
+
+The browser app has a **"📰 Analyst report"** button after each extract (downloads the HTML);
+`POST /report` returns `{html, markdown}`.
+
 ## Testing
 
 ```bash
