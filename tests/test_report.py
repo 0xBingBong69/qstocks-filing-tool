@@ -40,6 +40,13 @@ def test_report_is_self_contained_html():
     assert r["html"].startswith("<!doctype html>") and "<style>" in r["html"]
 
 
+def test_report_embeds_trend_charts():
+    # two years (current + comparative) → inline SVG bars + a sparkline column
+    h = rep.build_report("QNBK", [_qnb_filing()], qatar.profile_for_year("QNBK", 2023))["html"]
+    assert "<svg class='bars'" in h and "<svg class='spark'" in h
+    assert "<th>Trend</th>" in h
+
+
 def test_build_report_handles_thin_data():
     thin = {"metadata": {"symbol": "MERS", "fiscal_year": 2023, "fiscal_period": "FY", "currency": "QAR"},
             "statements": [{"type": "income_statement", "verbatim_text": "x",

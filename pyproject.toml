@@ -25,7 +25,7 @@ qscreen-ingest = "qscreen_ingest:main"
 qscreen-app = "qscreen_app:main"
 
 [tool.setuptools]
-py-modules = ["qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze", "qscreen_dcf", "qscreen_report", "qscreen_portfolio", "qscreen_workbook", "qscreen_statements"]
+py-modules = ["qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze", "qscreen_dcf", "qscreen_report", "qscreen_portfolio", "qscreen_workbook", "qscreen_statements", "qscreen_charts"]
 packages = ["qatar"]
 
 [tool.setuptools.package-data]

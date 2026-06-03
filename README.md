@@ -101,7 +101,7 @@ Every extraction can produce, by your choice:
 | **Statements document** (`.html`) | `--export html`, or the app's *Statements (HTML)* button | a printable, human-readable rendering of the financials (faithful line items, current + comparative columns, accounting-style negatives) — print to PDF to share |
 | **CSV** | `--export csv`, or the app's *CSV* button | a flat line-items table for quick grep/import |
 | **Analysis / valuation JSON** | `--analyze` | computed ratios, red flags, DCF (`qscreen_analyze`/`qscreen_dcf`) |
-| **Analyst report** (HTML/MD) | `qscreen_report.py`, or the app's *Analyst report* button | the one-page synthesis |
+| **Analyst report** (HTML/MD) | `qscreen_report.py`, or the app's *Analyst report* button | the one-page synthesis, with inline **SVG trend charts** (bars + sparklines) |
 
 The browser app shows an **Outputs** row after each extract so you can download any
 of these (or upload the JSON). `qscreen_workbook.build_workbook(filing, filings=…)`
@@ -232,9 +232,11 @@ unaffected.
 ### One-page analyst report
 
 `qscreen_report.build_report()` synthesises everything — company context & **event
-timeline**, multi-year figures, sector ratios (reported vs computed), trends, red flags,
-the **segment breakdown** (with FX/event annotations) and the **DCF valuation + sensitivity
-grid** — into a single self-contained **HTML** document (plus a **Markdown** version).
+timeline**, multi-year figures with inline **SVG trend charts** (bar charts + per-row
+sparklines, dependency-free via `qscreen_charts`), sector ratios (reported vs computed),
+trends, red flags, the **segment breakdown** (with FX/event annotations) and the **DCF
+valuation + sensitivity grid** — into a single self-contained **HTML** document (plus a
+**Markdown** version).
 
 ```bash
 python3 qscreen_report.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_filing.json \
