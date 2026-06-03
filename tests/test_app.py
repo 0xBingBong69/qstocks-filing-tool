@@ -41,6 +41,45 @@ def test_index_lists_all_providers(client):
     assert "platform.minimax.io" in html
 
 
+def test_index_lists_local_providers_and_guided(client):
+    html = client.get("/").get_data(as_text=True)
+    for v in ("ollama", "lmstudio", "llamacpp", "jan", "gpt4all"):
+        assert f'value="{v}"' in html
+    assert 'name="guided"' in html                           # the guided-mode toggle
+    assert '"local": true' in html                           # PROVIDER_INFO carries the flag
+    assert "no API key" in html or "no key" in html
+
+
+def test_extract_form_threads_guided_flag(client, monkeypatch):
+    # The /extract route must read the guided checkbox and resolve it via the engine.
+    import io
+    captured = {}
+
+    def fake_extract_filing(pages, args):
+        captured["guided"] = args.guided
+        captured["pages_per_chunk"] = args.pages_per_chunk
+        f = app_mod.engine.empty_filing()
+        f["statements"].append({"type": "income_statement", "title": "IS", "period_label": "2024",
+                                "verbatim_text": "x",
+                                "line_items": [{"account_code": None, "label_verbatim": "Rev", "value": 1}]})
+        return f
+
+    monkeypatch.setattr(app_mod.engine, "resolve_provider",
+                        lambda args: {"name": "ollama", "model": "gemma2:2b", "local": True,
+                                      "base_url": "http://localhost:11434/v1", "kind": "openai", "key": "local"})
+    monkeypatch.setattr(app_mod.engine, "pdf_to_pages", lambda path: ([{"num": 1, "text": "x"}], "sha"))
+    monkeypatch.setattr(app_mod.engine, "extract_filing", fake_extract_filing)
+
+    r = client.post("/extract", data={"symbol": "QNBK", "subsector": "Commercial Bank",
+                                       "year": "2024", "period": "FY", "provider": "ollama",
+                                       "guided": "1",
+                                       "pdf": (io.BytesIO(b"%PDF-1.4 fake"), "x.pdf")},
+                    content_type="multipart/form-data")
+    assert r.status_code == 200, r.get_json()
+    assert captured["guided"] is True
+    assert captured["pages_per_chunk"] == app_mod.engine.GUIDED_DEFAULT_PAGES
+
+
 def test_extract_requires_pdf(client):
     r = client.post("/extract", data={"symbol": "QIBK", "subsector": "Islamic Bank", "year": "2024"})
     assert r.status_code == 400
