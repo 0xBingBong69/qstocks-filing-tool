@@ -162,6 +162,22 @@ def test_export_csv_route_missing(client):
     assert client.post("/export.csv", json={}).status_code == 400
 
 
+def test_workbook_route_multi_filing(client):
+    def yf(y, ni):
+        return {"metadata": {"symbol": "QNBK", "fiscal_year": y, "fiscal_period": "FY", "currency": "QAR"},
+                "statements": [{"type": "income_statement", "title": "IS", "period_label": str(y),
+                                "verbatim_text": "x", "line_items": [
+                                    {"account_code": "IS_NET_INCOME", "label_verbatim": "Profit", "value": ni,
+                                     "comparatives": [{"period_label": str(y - 1), "value": ni - 1000}]}]}]}
+    r = client.post("/workbook", json={"filings": [yf(2022, 14000), yf(2023, 15000)]})
+    assert r.status_code == 200 and r.data[:2] == b"PK"
+
+
+def test_index_has_workbook_button(client):
+    h = client.get("/").get_data(as_text=True)
+    assert "runWorkbook" in h and "Excel workbook" in h
+
+
 def _bank_filing(sym, ni, eq):
     li = [{"account_code": c, "label_verbatim": c, "value": v,
            "comparatives": [{"period_label": "2022", "value": v}]}
