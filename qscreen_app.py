@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
+import tempfile
 import traceback
 from types import SimpleNamespace
 from pathlib import Path
@@ -32,6 +34,7 @@ except ImportError:
     sys.exit("Flask not installed. Run:  pip install flask pdfplumber requests")
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB upload cap
 
 # ── QSE taxonomy ─────────────────────────────────────────────────────────────
 # The full sector → sub-sector tree shown on qscreen.app (mirrors
@@ -254,13 +257,14 @@ def extract():
         # drives how the LLM reads the statements.
         sector = SUBSECTOR_TO_EXTRACTION.get(subsector, "other")
 
-        # Save the upload to a temp path the engine can open.
-        tmp = Path.cwd() / f".upload_{symbol}_{year}_{period}.pdf"
-        up.save(tmp)
+        # Save the upload to a private temp file (not a predictable CWD path).
+        fd, tmp_path = tempfile.mkstemp(suffix=".pdf", prefix="qscreen_upload_")
+        os.close(fd)
+        up.save(tmp_path)
         try:
-            pages, sha = engine.pdf_to_pages(str(tmp))
+            pages, sha = engine.pdf_to_pages(tmp_path)
         finally:
-            tmp.unlink(missing_ok=True)
+            Path(tmp_path).unlink(missing_ok=True)
 
         key = (engine.os.getenv("LLM_API_KEY") or engine.os.getenv("OPENROUTER_API_KEY")
                or engine.os.getenv("MINIMAX_API_KEY"))

@@ -194,9 +194,41 @@ DEFAULT_MODELS = {
 }
 
 
-# ── PDF → pages (text + recovered tables) ────────────────────────────────────
+# ── PDF → pages (text + recovered tables, optional OCR) ──────────────────────
 
-def pdf_to_pages(pdf_path: str) -> tuple[list[dict], str]:
+OCR_MIN_CHARS = 20   # a page with fewer than this many non-space chars is "empty"
+OCR_DPI = 300
+
+
+class OcrUnavailable(RuntimeError):
+    """Raised when OCR is requested but pytesseract/pdf2image aren't installed."""
+
+
+def _ocr_pages(pdf_path: str, page_numbers: list[int]) -> dict[int, str]:
+    """OCR specific 1-based page numbers; returns {page_num: text}."""
+    try:
+        import pytesseract
+        from pdf2image import convert_from_path
+    except Exception as e:  # missing python deps OR missing system tesseract/poppler
+        raise OcrUnavailable(str(e))
+    out: dict[int, str] = {}
+    for n in page_numbers:
+        try:
+            images = convert_from_path(pdf_path, first_page=n, last_page=n, dpi=OCR_DPI)
+        except Exception:
+            continue
+        if images:
+            out[n] = pytesseract.image_to_string(images[0]) or ""
+    return out
+
+
+def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str]:
+    """Extract per-page text (+ recovered tables). ocr_mode: auto|never|always.
+
+    auto   — OCR only pages that pdfplumber returned (almost) no text for.
+    always — OCR every page (slow; for fully-scanned filings).
+    never  — text layer only.
+    """
     import pdfplumber
     raw = Path(pdf_path).read_bytes()
     sha = hashlib.sha256(raw).hexdigest()
@@ -208,6 +240,34 @@ def pdf_to_pages(pdf_path: str) -> tuple[list[dict], str]:
             if rendered:
                 text = f"{text}\n\n[TABLES on page {page_num}]\n{rendered}"
             pages.append({"num": page_num, "text": text})
+
+    if ocr_mode == "always":
+        targets = [p["num"] for p in pages]
+    elif ocr_mode == "auto":
+        targets = [p["num"] for p in pages if len(p["text"].strip()) < OCR_MIN_CHARS]
+    else:
+        targets = []
+
+    if targets:
+        try:
+            ocr_map = _ocr_pages(pdf_path, targets)
+            recovered = 0
+            for p in pages:
+                add = (ocr_map.get(p["num"]) or "").strip()
+                if add:
+                    p["text"] = (f"{p['text']}\n\n[OCR text]\n{add}"
+                                 if p["text"].strip() else add)
+                    recovered += 1
+            if recovered:
+                print(f"   🔎 OCR recovered text from {recovered} page(s)")
+        except OcrUnavailable:
+            scanned = len([p for p in pages if len(p["text"].strip()) < OCR_MIN_CHARS])
+            msg = ("OCR is not available (install: pip install pytesseract pdf2image, "
+                   "plus system 'tesseract' and 'poppler')")
+            if ocr_mode == "always":
+                raise SystemExit(f"--ocr always requested but {msg}.")
+            print(f"   ⚠️  {scanned} page(s) have little/no extractable text (likely "
+                  f"scanned). {msg}; re-run with --ocr always to force.")
     return pages, sha
 
 
@@ -346,13 +406,24 @@ def call_llm(messages: list[dict], args) -> str:
     for attempt in range(1, args.retries + 1):
         try:
             resp = requests.post(url, headers=headers, json=payload, timeout=args.timeout)
+        except requests.RequestException as e:
+            last_err = str(e)
+        else:
             if resp.status_code in (429, 500, 502, 503, 504):
-                last_err = f"HTTP {resp.status_code}: {resp.text[:200]}"
+                last_err = f"HTTP {resp.status_code}: {resp.text[:200]}"  # transient → retry
+            elif resp.status_code in (400, 401, 403, 404, 422):
+                detail = resp.text[:300]
+                hint = ""
+                if resp.status_code in (401, 403):
+                    hint = (" — check the API key, or this network may be blocking the "
+                            "provider (the remote-environment network policy must allow "
+                            f"{base}).")
+                elif "model" in detail.lower():
+                    hint = f" — model {model!r} may be invalid; pass --model with a valid slug."
+                raise SystemExit(f"LLM provider error HTTP {resp.status_code}: {detail}{hint}")
             else:
                 resp.raise_for_status()
                 return resp.json()["choices"][0]["message"]["content"]
-        except requests.RequestException as e:
-            last_err = str(e)
         if attempt < args.retries:
             wait = 2 ** attempt
             print(f"   ⚠️  LLM call failed ({last_err}); retry {attempt}/{args.retries - 1} in {wait}s")
@@ -360,12 +431,60 @@ def call_llm(messages: list[dict], args) -> str:
     raise SystemExit(f"LLM call failed after {args.retries} attempts: {last_err}")
 
 
+def _strip_code_fences(text: str) -> str:
+    t = text.strip()
+    if t.startswith("```"):
+        nl = t.find("\n")          # drop the ``` or ```json opening line
+        if nl != -1:
+            t = t[nl + 1:]
+        if t.rstrip().endswith("```"):
+            t = t.rstrip()[:-3]
+    return t.strip()
+
+
+def _first_json_object(text: str) -> str | None:
+    """Return the first balanced {...} block, respecting JSON strings/escapes.
+
+    More robust than slicing the outermost braces: tolerates a trailing brace
+    that appears in prose after the object, or an opening brace inside a string.
+    """
+    start = text.find("{")
+    if start == -1:
+        return None
+    depth, in_str, esc = 0, False, False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
+
 def parse_llm_json(raw: str) -> dict:
-    text = raw.strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1 or end < start:
+    text = _strip_code_fences(raw)
+    try:                            # fast path: the whole response is the object
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    candidate = _first_json_object(text)
+    if candidate is None:
         raise ValueError("no JSON object found in model response")
-    return json.loads(text[start:end + 1])
+    return json.loads(candidate)
 
 
 # ── Normalization (map common LLM aliases to the contract) ───────────────────
@@ -486,6 +605,44 @@ def _statement_score(st: dict) -> tuple[int, int]:
     return (len(st.get("line_items") or []), len(st.get("verbatim_text") or ""))
 
 
+def _line_item_key(li: dict) -> tuple:
+    label = " ".join(str(li.get("label_verbatim") or "").split()).lower()
+    return (label, li.get("value"), str(li.get("note_ref") or ""))
+
+
+def _merge_statement_group(stype: str, group: list[dict]) -> dict:
+    """Combine every window's copy of one statement type into a single statement.
+
+    The fullest single rendering supplies the scalar fields and verbatim_text
+    (longest wins, which avoids duplicating the overlap region), but line_items
+    are UNIONED across all windows and de-duplicated, so a statement split
+    across a page/window boundary keeps every row — preserving the structured
+    data losslessly rather than discarding the smaller partial.
+    """
+    primary = max(group, key=_statement_score)
+    items: list[dict] = []
+    seen: dict[tuple, int] = {}
+    for st in group:
+        for li in st.get("line_items") or []:
+            if not (isinstance(li, dict) and li.get("label_verbatim")):
+                continue
+            key = _line_item_key(li)
+            if key in seen:                       # overlap duplicate — keep one,
+                kept = items[seen[key]]           # but upgrade a null code if a
+                if not kept.get("account_code") and li.get("account_code"):
+                    kept["account_code"] = li["account_code"]  # later copy mapped it
+                continue
+            seen[key] = len(items)
+            items.append(dict(li))
+    return {
+        "type": stype,
+        "title": primary.get("title"),
+        "period_label": primary.get("period_label"),
+        "verbatim_text": primary.get("verbatim_text") or "",
+        "line_items": items,
+    }
+
+
 def merge_filings(parts: list[dict]) -> dict:
     merged = empty_filing()
     for part in parts:
@@ -522,15 +679,14 @@ def merge_filings(parts: list[dict]) -> dict:
     merged["audit"]["key_audit_matters"] = kams
     merged["audit"]["emphasis_of_matter"] = sorted(set(e for e in all_eom if e and e.strip()))
 
-    by_type: dict[str, dict] = {}
+    by_type: dict[str, list[dict]] = {}
     for part in parts:
         for st in part.get("statements") or []:
             t = st.get("type")
             if not t:
                 continue
-            if t not in by_type or _statement_score(st) > _statement_score(by_type[t]):
-                by_type[t] = st
-    merged["statements"] = list(by_type.values())
+            by_type.setdefault(t, []).append(st)
+    merged["statements"] = [_merge_statement_group(t, g) for t, g in by_type.items()]
 
     by_note: dict[str, dict] = {}
     for part in parts:
@@ -675,6 +831,8 @@ def main() -> int:
     p.add_argument("--pages-per-chunk", type=int, default=12)
     p.add_argument("--overlap", type=int, default=1)
     p.add_argument("--no-chunk", action="store_true")
+    p.add_argument("--ocr", choices=["auto", "never", "always"], default="auto",
+                   help="OCR scanned pages (auto: only near-empty pages; needs pytesseract+tesseract)")
     p.add_argument("--no-json-mode", action="store_true",
                    help="Don't send response_format=json_object (some providers reject it)")
     p.add_argument("--llm-key", default=(os.getenv("LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY")
@@ -695,7 +853,7 @@ def main() -> int:
         p.error("LLM key required (set OPENROUTER_API_KEY in .env, or pass --llm-key)")
 
     print(f"📄 Reading {Path(args.pdf).name} …")
-    pages, sha = pdf_to_pages(args.pdf)
+    pages, sha = pdf_to_pages(args.pdf, args.ocr)
     total_chars = sum(len(pg["text"]) for pg in pages)
     print(f"   {len(pages)} pages, {total_chars:,} chars (text + recovered tables), sha256={sha[:12]}…")
 
