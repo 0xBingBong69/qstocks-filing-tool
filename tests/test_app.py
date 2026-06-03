@@ -187,6 +187,28 @@ def test_portfolio_route_missing(client):
     assert client.post("/portfolio", json={}).status_code == 400
 
 
+def test_extract_non_numeric_year_is_400(client):
+    import io
+    r = client.post("/extract", data={"symbol": "QNBK", "subsector": "Commercial Bank",
+                                       "year": "20xx", "period": "FY",
+                                       "pdf": (io.BytesIO(b"%PDF-1.4 fake"), "x.pdf")},
+                    content_type="multipart/form-data")
+    assert r.status_code == 400 and "year" in r.get_json()["error"]
+
+
+def test_dcf_route_bad_assumptions_is_400(client):
+    li = [{"account_code": "IS_NET_INCOME", "label_verbatim": "x", "value": 1,
+           "comparatives": [{"period_label": "2022", "value": 1}]},
+          {"account_code": "BS_TOTAL_EQUITY", "label_verbatim": "x", "value": 1,
+           "comparatives": [{"period_label": "2022", "value": 1}]}]
+    filing = {"metadata": {"symbol": "QNBK", "fiscal_year": 2023, "fiscal_period": "FY", "currency": "QAR"},
+              "statements": [{"type": "income_statement", "verbatim_text": "x", "line_items": li}]}
+    # terminal_growth >= discount_rate makes the Gordon model raise — must be a clean 400, not 500.
+    r = client.post("/dcf", json={"filing": filing,
+                                  "assumptions": {"discount_rate": 0.02, "terminal_growth": 0.05}})
+    assert r.status_code == 400
+
+
 def test_upload_route_folds_analysis(client, monkeypatch):
     monkeypatch.setenv("INGEST_TOKEN", "tok")
     captured = {}

@@ -162,12 +162,12 @@ def _safe_div(n, d):
     return n / d
 
 
-def _as_fraction(x):
-    """Normalize a ratio that may be printed as a percent (19.5) or a fraction (0.195)."""
+def _kpi_pct(x):
+    """A reported KPI ratio is printed as a percentage number (e.g. 1.3 for 1.3%,
+    19.5 for 19.5%). Store it as a FRACTION so every ratio shares one unit and no
+    magnitude-guessing is ever needed downstream."""
     x = _num(x)
-    if x is None:
-        return None
-    return x / 100.0 if abs(x) > 1.5 else x
+    return x / 100.0 if x is not None else None
 
 
 def _r(value, basis):
@@ -175,8 +175,9 @@ def _r(value, basis):
 
 
 def _kpi_or(cur, kpi, computed):
+    """Prefer a printed KPI ratio (normalized percent→fraction), else the computed fraction."""
     k = _g(cur, kpi)
-    return _r(k, "reported") if k is not None else _r(computed, "computed")
+    return _r(_kpi_pct(k), "reported") if k is not None else _r(computed, "computed")
 
 
 def _bank_ratios(cur, prior, islamic=False):
@@ -189,9 +190,9 @@ def _bank_ratios(cur, prior, islamic=False):
         "roa": _r(_safe_div(ni, ta), "computed"),
         "cost_income": _kpi_or(cur, "KPI_COST_INCOME", _safe_div(cost, income)),
         "ldr": _kpi_or(cur, "KPI_LDR", _safe_div(_g(cur, "BS_LOANS"), _g(cur, "BS_CUSTOMER_DEPOSITS"))),
-        "npl": _r(_g(cur, "KPI_NPL"), "reported"),
-        "car": _r(_g(cur, "KPI_CAR"), "reported"),
-        "coverage": _r(_g(cur, "KPI_COVERAGE"), "reported"),
+        "npl": _r(_kpi_pct(_g(cur, "KPI_NPL")), "reported"),
+        "car": _r(_kpi_pct(_g(cur, "KPI_CAR")), "reported"),
+        "coverage": _r(_kpi_pct(_g(cur, "KPI_COVERAGE")), "reported"),
     }
     if not islamic:
         out["nim"] = _kpi_or(cur, "KPI_NIM", _safe_div(_g(cur, "IS_NET_INTEREST"), ta))
@@ -201,12 +202,12 @@ def _bank_ratios(cur, prior, islamic=False):
 def _insurance_ratios(cur, prior):
     eq = _avg(_g(cur, "BS_TOTAL_EQUITY"), _g(prior, "BS_TOTAL_EQUITY"))
     loss = _kpi_or(cur, "KPI_LOSS_RATIO", _safe_div(_g(cur, "IS_CLAIMS"), _g(cur, "IS_NET_PREMIUMS")))
-    exp = _r(_g(cur, "KPI_EXPENSE_RATIO"), "reported")
+    exp = _r(_kpi_pct(_g(cur, "KPI_EXPENSE_RATIO")), "reported")
     combined = _g(cur, "KPI_COMBINED")
     if combined is not None:
-        combined_r = _r(combined, "reported")
+        combined_r = _r(_kpi_pct(combined), "reported")
     elif loss["value"] is not None and exp["value"] is not None:
-        combined_r = _r(_as_fraction(loss["value"]) + _as_fraction(exp["value"]), "computed")
+        combined_r = _r(loss["value"] + exp["value"], "computed")   # both already fractions
     else:
         combined_r = _r(None, None)
     return {"loss_ratio": loss, "expense_ratio": exp, "combined_ratio": combined_r,
@@ -221,8 +222,10 @@ def _industrial_ratios(cur, prior):
     fcf = reported_fcf
     if fcf is None:
         ocf, capex = _g(cur, "CF_OCF"), _g(cur, "CF_CAPEX")
-        fcf = ocf + capex if (ocf is not None and capex is not None) else None
+        # capex is an outflow regardless of the sign the filing uses for it.
+        fcf = ocf - abs(capex) if (ocf is not None and capex is not None) else None
     div = _g(cur, "CF_DIVIDENDS_PAID")
+    payout = _safe_div(abs(div), ni) if (div is not None and ni is not None and ni > 0) else None
     return {
         "net_margin": _r(_safe_div(ni, rev), "computed"),
         "operating_margin": _r(_safe_div(_g(cur, "IS_OPERATING_PROFIT"), rev), "computed"),
@@ -231,7 +234,7 @@ def _industrial_ratios(cur, prior):
         "liabilities_to_equity": _r(_safe_div(_g(cur, "BS_TOTAL_LIABILITIES"),
                                               _g(cur, "BS_TOTAL_EQUITY")), "computed"),
         "fcf": _r(fcf, "reported" if reported_fcf is not None else "computed"),
-        "dividend_payout": _r(_safe_div(abs(div) if div is not None else None, ni), "computed"),
+        "dividend_payout": _r(payout, "computed"),
     }
 
 
@@ -277,7 +280,8 @@ def compute_trends(series: dict, archetype: str) -> dict:
         if not pts:
             continue
         latest_v = pts[-1][1]
-        yoy = _yoy(latest_v, pts[-2][1]) if len(pts) >= 2 else None
+        # Only call it YoY when the two latest present points are consecutive years.
+        yoy = (_yoy(latest_v, pts[-2][1]) if len(pts) >= 2 and pts[-1][0] - pts[-2][0] == 1 else None)
         cagr = None
         span = pts[-1][0] - pts[0][0]
         if span > 0 and pts[0][1] and latest_v and pts[0][1] > 0 and latest_v > 0:
@@ -297,12 +301,13 @@ def red_flags(series: dict, ratios: dict, profile: dict | None = None,
     flags: list[dict] = []
     yrs = sorted(ratios or {})
     if yrs:
+        # All ratio values are fractions (reported KPIs were normalized at source).
         cur, prev = yrs[-1], (yrs[-2] if len(yrs) >= 2 else None)
-        car = _as_fraction(_val(ratios, cur, "car"))
+        car = _val(ratios, cur, "car")
         if car is not None and car < 0.13:
             flags.append({"severity": "alert", "rule": "low_car", "year": cur,
                           "message": f"Capital adequacy {car * 100:.1f}% is close to the Basel III minimum."})
-        npl = _as_fraction(_val(ratios, cur, "npl"))
+        npl = _val(ratios, cur, "npl")
         if npl is not None and npl > 0.04:
             flags.append({"severity": "warn", "rule": "high_npl", "year": cur,
                           "message": f"NPL ratio {npl * 100:.1f}% is elevated."})
@@ -311,16 +316,16 @@ def red_flags(series: dict, ratios: dict, profile: dict | None = None,
         if fcf is not None and fcf < 0:
             flags.append({"severity": "warn", "rule": "negative_fcf", "year": cur,
                           "message": "Free cash flow is negative."})
-        cr = _as_fraction(_val(ratios, cur, "combined_ratio"))
+        cr = _val(ratios, cur, "combined_ratio")
         if cr is not None and cr > 1.0:
             flags.append({"severity": "alert", "rule": "underwriting_loss", "year": cur,
                           "message": f"Combined ratio {cr * 100:.0f}% exceeds 100% — underwriting loss."})
         if prev:
-            npl_p = _as_fraction(_val(ratios, prev, "npl"))
+            npl_p = _val(ratios, prev, "npl")
             if npl is not None and npl_p is not None and npl - npl_p > 0.005:
                 flags.append({"severity": "warn", "rule": "rising_npl", "year": cur,
                               "message": f"NPL ratio rose {(npl - npl_p) * 100:.1f}pp year-on-year."})
-            ci, ci_p = _as_fraction(_val(ratios, cur, "cost_income")), _as_fraction(_val(ratios, prev, "cost_income"))
+            ci, ci_p = _val(ratios, cur, "cost_income"), _val(ratios, prev, "cost_income")
             if ci is not None and ci_p is not None and ci - ci_p > 0.03:
                 flags.append({"severity": "warn", "rule": "rising_cost_income", "year": cur,
                               "message": f"Cost-to-income rose to {ci * 100:.0f}%."})
@@ -429,7 +434,6 @@ _COMPARE_RATIOS = {
     "other": [("net_margin", "high"), ("operating_margin", "high"), ("roe", "high"),
               ("roa", "high"), ("liabilities_to_equity", "low")],
 }
-_KPI_RATIOS = {"npl", "car", "cost_income", "loss_ratio", "combined_ratio", "ldr", "expense_ratio"}
 
 
 def compare(target: str, filings_by_symbol: dict, profiles_by_symbol: dict | None = None) -> dict:
@@ -460,10 +464,14 @@ def compare(target: str, filings_by_symbol: dict, profiles_by_symbol: dict | Non
     for name, direction in specs:
         if direction not in ("high", "low"):
             continue
-        present = [(r["symbol"], _as_fraction(r["ratios"][name]) if name in _KPI_RATIOS else r["ratios"][name])
-                   for r in rows if r["ratios"].get(name) is not None]
-        for i, (sym, _) in enumerate(sorted(present, key=lambda x: x[1], reverse=(direction == "high")), 1):
-            ranks[sym][name] = i
+        # All ratio values are fractions now, so they rank directly. Ties share a rank.
+        present = [(r["symbol"], r["ratios"][name]) for r in rows if r["ratios"].get(name) is not None]
+        ordered = sorted(present, key=lambda x: x[1], reverse=(direction == "high"))
+        prev_val, prev_rank = object(), 0
+        for i, (sym, val) in enumerate(ordered, 1):
+            rank = prev_rank if val == prev_val else i
+            ranks[sym][name] = rank
+            prev_val, prev_rank = val, rank
     for r in rows:
         r["ranks"] = ranks[r["symbol"]]
     rows.sort(key=lambda r: (not r["is_target"], r["symbol"]))   # target first, then alphabetical

@@ -86,7 +86,9 @@ def residual_income(book_equity: float, roe: float, *, discount_rate: float, gro
         pv_ri += pv
         proj.append({"year": t, "opening_book": bv, "residual_income": ri, "pv": pv})
         bv = bv * (1 + g)
-    ri_terminal = (roe - r) * bv * (1 + gt)   # bv is now book value at year N
+    # bv is now book value at year N, so (roe-r)*bv is exactly RI_{N+1}; the Gordon
+    # continuing value is RI_{N+1}/(r-gt) — no extra (1+gt) (that would discount RI_{N+2}).
+    ri_terminal = (roe - r) * bv
     tv = ri_terminal / (r - gt)
     pv_terminal = tv / (1 + r) ** years
     return _finish("residual_income", proj, pv_ri, pv_terminal,
@@ -176,7 +178,8 @@ def value(symbol: str, filings: list[dict], profile: dict | None = None,
         fcf = analyze._g(m, "CF_FCF")
         if fcf is None:
             ocf, capex = analyze._g(m, "CF_OCF"), analyze._g(m, "CF_CAPEX")
-            fcf = ocf + capex if (ocf is not None and capex is not None) else None
+            # capex is an outflow regardless of the filing's sign convention.
+            fcf = ocf - abs(capex) if (ocf is not None and capex is not None) else None
         g = a.get("growth", _hist_growth(series, "IS_REVENUE"))
         if fcf is None:
             return {"symbol": symbol.upper(), "archetype": archetype, "valuation": None,
@@ -192,7 +195,7 @@ def value(symbol: str, filings: list[dict], profile: dict | None = None,
                        key="per_share" if shares else "equity_value")
 
     upside = None
-    if price is not None and result.get("per_share"):
+    if price not in (None, 0) and result.get("per_share"):
         upside = result["per_share"] / price - 1
     return {
         "symbol": symbol.upper(), "archetype": archetype, "reporting_currency": series.get("currency"),

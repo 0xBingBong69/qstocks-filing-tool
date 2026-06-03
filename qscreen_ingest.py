@@ -186,9 +186,13 @@ def validate_filing(data: dict) -> list[str]:
                         problems.append(f"statements[{i}].line_items[{j}].comparatives: must be a list")
                     else:
                         for c, comp in enumerate(comps):
-                            if not isinstance(comp, dict) or not comp.get("period_label"):
+                            # Require BOTH a period_label and a value — a comparative
+                            # with a label but no value is silently lost downstream.
+                            if not isinstance(comp, dict) or not comp.get("period_label") \
+                                    or comp.get("value") is None:
                                 problems.append(
-                                    f"statements[{i}].line_items[{j}].comparatives[{c}]: need period_label")
+                                    f"statements[{i}].line_items[{j}].comparatives[{c}]: "
+                                    "need both period_label and value")
 
     # segments[] is an optional, additive section (absent or [] is fine).
     segments = data.get("segments")
@@ -524,6 +528,10 @@ Capture each prior figure in `comparatives` as [{{"period_label": "2022", \
 [] only when the row genuinely prints no comparative.
    - account_code MUST be one of these canonical codes, or null if no clean \
 match (when null, still keep label_verbatim): {codes}
+   - KPI RATIOS: for any KPI_* ratio code (e.g. KPI_CAR, KPI_NPL, KPI_COST_INCOME, \
+KPI_NIM, KPI_LDR, KPI_ROE, KPI_ROA, KPI_LOSS_RATIO, KPI_EXPENSE_RATIO, \
+KPI_COMBINED) record `value` as the PERCENTAGE NUMBER exactly as printed — e.g. \
+1.3 for "1.3%", 19.5 for "19.5%" — never as a fraction like 0.013.
    - statements[].type MUST be one of: {statement_types}
 3. AUDIT. audit.opinion_type MUST be one of: {opinions}. Put the full opinion \
 wording in audit.verbatim_text (NOT a field called opinion_text). Each key \
@@ -969,7 +977,11 @@ def merge_filings(parts: list[dict]) -> dict:
 
 def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
     import requests
-    url = f"{args.api_url.rstrip('/')}/api/v1/ingest/filing"
+    base = args.api_url.rstrip("/")
+    if base.startswith("http://") and not any(h in base for h in ("localhost", "127.0.0.1")):
+        print("⚠️  uploading over plaintext HTTP to a non-local host — the ingest token "
+              "would be exposed in transit; use an https:// QSCREEN_API_URL.")
+    url = f"{base}/api/v1/ingest/filing"
     headers = {"Authorization": f"Bearer {args.token}", "Content-Type": "application/json"}
     # Additive: when asked, fold the derived analysis in as a sibling key. The
     # filing contract itself is unchanged, so a backend that ignores unknown keys
@@ -985,18 +997,17 @@ def build_analysis_artifacts(filing: dict, args) -> dict:
     into the upload. Lazily imported so the core engine stays standalone."""
     symbol = (filing.get("metadata") or {}).get("symbol") or getattr(args, "symbol", "")
     profile = getattr(args, "_profile", None)
-    out: dict = {}
     try:
         import qscreen_analyze
-        out["analysis"] = qscreen_analyze.analyze(symbol, [filing], profile)
-    except Exception as e:                       # never let analysis break extraction
-        out["analysis_error"] = str(e)
-    try:
         import qscreen_dcf
-        out["valuation"] = qscreen_dcf.value(symbol, [filing], profile)
-    except Exception as e:
-        out["valuation_error"] = str(e)
-    return out
+    except ImportError as e:                      # analysis layer genuinely absent
+        return {"analysis_error": f"analysis modules unavailable: {e}"}
+    # Real bugs inside analyze()/value() propagate to the caller (who decides whether
+    # to degrade) rather than being silently stringified here.
+    return {
+        "analysis": qscreen_analyze.analyze(symbol, [filing], profile),
+        "valuation": qscreen_dcf.value(symbol, [filing], profile),
+    }
 
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
@@ -1093,7 +1104,8 @@ def flatten_line_items(filing: dict) -> list[dict]:
     rows: list[dict] = []
     for st in filing.get("statements") or []:
         for li in st.get("line_items") or []:
-            comps = li.get("comparatives") or []
+            comps = li.get("comparatives")
+            comps = comps if isinstance(comps, list) else []   # tolerate a non-list from the LLM
             prior = comps[0] if comps and isinstance(comps[0], dict) else {}
             rows.append({
                 "statement_type": st.get("type"),
@@ -1187,9 +1199,13 @@ def run_filing(args) -> int:
         print(f"📑 Exported {n} line item(s) → {out}")
 
     # Both outputs: optionally also persist the derived analysis/valuation locally.
+    # A failure here must never sink a successful extraction — but it IS surfaced.
     artifacts = None
     if getattr(args, "analyze", False) or getattr(args, "with_analysis", False):
-        artifacts = build_analysis_artifacts(filing, args)
+        try:
+            artifacts = build_analysis_artifacts(filing, args)
+        except Exception as e:
+            print(f"   ⚠️  analysis step failed (extraction is unaffected): {e}")
     if getattr(args, "analyze", False) and artifacts:
         base = f"{args.symbol.upper()}_{args.year}_{args.period}"
         if artifacts.get("analysis"):

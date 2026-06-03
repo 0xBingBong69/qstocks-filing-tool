@@ -180,19 +180,20 @@ function updateProvider() {
 if (provEl) { provEl.addEventListener('change', updateProvider); updateProvider(); }
 
 function fmtNum(x){ return (x==null)?'—':Number(x).toLocaleString(); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtPct(x){ if(x==null) return '<span>—</span>'; const c=x<0?'neg':'pos'; return '<span class="'+c+'">'+(x*100).toFixed(0)+'%</span>'; }
 function renderSegments(sa){
   if(!sa || !sa.dimensions || !Object.keys(sa.dimensions).length) return '';
-  let h = '<div class="seg"><h3>Segment breakdown ('+(sa.reporting_currency||'')+')</h3>';
+  let h = '<div class="seg"><h3>Segment breakdown ('+esc(sa.reporting_currency||'')+')</h3>';
   for(const dim of Object.keys(sa.dimensions)){
     const d = sa.dimensions[dim];
-    h += '<h4>by '+dim.replace('_',' ')+'</h4><table class="seg"><tr><th>Segment</th>'
+    h += '<h4>by '+esc(dim.replace('_',' '))+'</h4><table class="seg"><tr><th>Segment</th>'
        + '<th>Revenue</th><th>YoY</th><th>Share</th><th>Net profit</th><th>YoY</th></tr>';
     for(const r of d.segments){
       const m=r.metrics||{}, y=r.yoy||{}, s=r.share||{};
-      const fx = r.fx_exposed ? ' <span class="fx" title="'+(r.fx_note||'')+'">FX '+(r.currency||'')+'</span>' : '';
-      const ev = (r.events&&r.events.length) ? ' <span class="ev" title="'+r.events.join(' · ')+'">ⓘ</span>' : '';
-      h += '<tr><td>'+r.name+fx+ev+'</td><td>'+fmtNum(m.revenue)+'</td><td>'+fmtPct(y.revenue)
+      const fx = r.fx_exposed ? ' <span class="fx" title="'+esc(r.fx_note||'')+'">FX '+esc(r.currency||'')+'</span>' : '';
+      const ev = (r.events&&r.events.length) ? ' <span class="ev" title="'+esc(r.events.join(' · '))+'">ⓘ</span>' : '';
+      h += '<tr><td>'+esc(r.name)+fx+ev+'</td><td>'+fmtNum(m.revenue)+'</td><td>'+fmtPct(y.revenue)
          + '</td><td>'+fmtPct(s.revenue)+'</td><td>'+fmtNum(m.net_profit)+'</td><td>'+fmtPct(y.net_profit)+'</td></tr>';
     }
     h += '</table>';
@@ -201,19 +202,19 @@ function renderSegments(sa){
 }
 function fmtCmp(name, v){
   if(v==null) return '—';
-  const pctSet = ['roe','roa','nim','cost_income','npl','car','ldr','net_margin','operating_margin','loss_ratio','combined_ratio'];
   if(name==='liabilities_to_equity') return Number(v).toFixed(2)+'×';
-  if(pctSet.indexOf(name)>=0){ const p=(Math.abs(v)<=1.5)?v*100:v; return p.toFixed(1)+'%'; }
+  const pctSet = ['roe','roa','nim','cost_income','npl','car','ldr','net_margin','operating_margin','loss_ratio','combined_ratio'];
+  if(pctSet.indexOf(name)>=0) return (v*100).toFixed(1)+'%';   // values are fractions
   return Number(v).toLocaleString();
 }
 function renderCompare(d){
   if(!d || !d.rows || !d.rows.length) return '<span class="warn">'+((d&&d.error)||'nothing to compare')+'</span>';
   const metrics = d.metrics.map(m=>m.name);
   let h = '<table class="cmp"><tr><th>Company</th>';
-  for(const m of metrics) h += '<th>'+m.replace(/_/g,' ')+'</th>';
+  for(const m of metrics) h += '<th>'+esc(m.replace(/_/g,' '))+'</th>';
   h += '</tr>';
   for(const r of d.rows){
-    h += '<tr class="'+(r.is_target?'target':'')+'"><td title="'+r.symbol+'">'+r.symbol+(r.is_target?' ★':'')+'</td>';
+    h += '<tr class="'+(r.is_target?'target':'')+'"><td title="'+esc(r.symbol)+'">'+esc(r.symbol)+(r.is_target?' ★':'')+'</td>';
     for(const m of metrics){ const rk=r.ranks[m];
       h += '<td class="'+(rk===1?'r1':'')+'">'+fmtCmp(m, r.ratios[m])+(rk?'<sup>#'+rk+'</sup>':'')+'</td>'; }
     h += '</tr>';
@@ -269,7 +270,7 @@ function renderDcfResult(d){
   const headline = (v.per_share!=null) ? (ccy+' '+v.per_share.toFixed(2)+' / share')
                                        : (ccy+' '+fmtNum(Math.round(v.equity_value))+' equity value');
   let h = '<p class="dcfval">'+headline+'</p>';
-  h += '<p class="muted">model: '+v.model+' · terminal '+(v.terminal_pct*100).toFixed(0)+'% of value'
+  h += '<p class="muted">model: '+esc(v.model)+' · terminal '+(v.terminal_pct*100).toFixed(0)+'% of value'
      + ((d.upside!=null) ? ' · upside <span class="'+(d.upside<0?'neg':'pos')+'">'+(d.upside*100).toFixed(0)+'%</span> vs '+d.price : '')+'</p>';
   const s=d.sensitivity;
   if(s){
@@ -292,8 +293,7 @@ function fmtRatio(name, r){
   const v=r.value, rep=(r.basis==='reported')?' <span class="rep" title="as reported by the company">®</span>':'';
   if(name==='fcf') return fmtNum(v)+rep;
   if(name==='liabilities_to_equity') return v.toFixed(2)+'×'+rep;
-  const pct = (Math.abs(v)<=1.5) ? v*100 : v;
-  return pct.toFixed(1)+'%'+rep;
+  return (v*100).toFixed(1)+'%'+rep;   // all ratio values are fractions
 }
 function renderAnalysis(an){
   if(!an || !an.ratios) return '';
@@ -301,12 +301,12 @@ function renderAnalysis(an){
   const y = yrs[yrs.length-1], R = an.ratios[y];
   let h='<div class="seg"><h3>Key ratios — '+y+' ('+(an.archetype||'').replace(/_/g,' ')+') <span class="rep">® = as reported</span></h3>';
   h+='<table class="seg"><tr><th>Ratio</th><th>Value</th></tr>';
-  for(const k of Object.keys(R)) h+='<tr><td>'+k.replace(/_/g,' ')+'</td><td>'+fmtRatio(k,R[k])+'</td></tr>';
+  for(const k of Object.keys(R)) h+='<tr><td>'+esc(k.replace(/_/g,' '))+'</td><td>'+fmtRatio(k,R[k])+'</td></tr>';
   h+='</table>';
   if(an.red_flags && an.red_flags.length){
     h+='<h4>Red flags</h4><ul class="flags">';
     for(const f of an.red_flags){ const cls=(f.severity==='alert')?'alert':'warn2';
-      h+='<li class="'+cls+'">'+((f.severity==='alert')?'🚨':'⚠️')+' '+f.message+'</li>'; }
+      h+='<li class="'+cls+'">'+((f.severity==='alert')?'🚨':'⚠️')+' '+esc(f.message)+'</li>'; }
     h+='</ul>';
   }
   return h+'</div>';
@@ -429,6 +429,10 @@ def extract():
         period = (request.form.get("period") or "FY").strip()
         if not (symbol and subsector and year):
             return {"error": "symbol, sub-sector and year are required"}, 400
+        try:
+            year = int(year)
+        except (TypeError, ValueError):
+            return {"error": "year must be an integer"}, 400
         # The rich QSE sub-sector is stored; the extraction category (1 of 5)
         # drives how the LLM reads the statements.
         sector = SUBSECTOR_TO_EXTRACTION.get(subsector, "other")
@@ -465,7 +469,11 @@ def extract():
             "extractor": {"provider": cfg["name"], "model": cfg["model"]},
         })
         problems = engine.validate_filing(filing)
-        analysis = qscreen_analyze.analyze(symbol, [filing], args._profile)
+        try:                                       # analysis must never sink a good extraction
+            analysis = qscreen_analyze.analyze(symbol, [filing], args._profile)
+        except Exception as ex:
+            analysis = {"warnings": [f"analysis failed: {ex}"], "ratios": {}, "trends": {},
+                        "red_flags": [], "segments": {"dimensions": {}, "warnings": []}}
         nseg = len(filing.get("segments", []))
         nflags = len(analysis.get("red_flags", []))
         summary = (f"Extracted {len(filing.get('statements', []))} statements, "
@@ -504,7 +512,10 @@ def analyze_route():
     if not symbol:
         return {"error": "could not determine symbol"}, 400
     profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
-    return qscreen_analyze.analyze(symbol, filings, profile)
+    try:
+        return qscreen_analyze.analyze(symbol, filings, profile)
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/portfolio", methods=["POST"])
@@ -520,9 +531,12 @@ def portfolio_route():
         return {"error": "no filings carry a metadata.symbol"}, 400
     profiles = {s: qatar.profile_for_year(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
                 for s, fs in groups.items()}
-    board = qscreen_portfolio.roll_up(groups, profiles)
-    return {"count": board["count"], "rows": board["rows"],
-            "html": qscreen_portfolio.render_html(board)}
+    try:
+        board = qscreen_portfolio.roll_up(groups, profiles)
+        return {"count": board["count"], "rows": board["rows"],
+                "html": qscreen_portfolio.render_html(board)}
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/report", methods=["POST"])
@@ -539,10 +553,13 @@ def report_route():
     if not symbol:
         return {"error": "could not determine symbol"}, 400
     profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
-    rep = qscreen_report.build_report(symbol, filings, profile,
-                                      assumptions=payload.get("assumptions") or {},
-                                      price=payload.get("price"), shares=payload.get("shares"))
-    return {"symbol": rep["symbol"], "html": rep["html"], "markdown": rep["markdown"]}
+    try:
+        rep = qscreen_report.build_report(symbol, filings, profile,
+                                          assumptions=payload.get("assumptions") or {},
+                                          price=payload.get("price"), shares=payload.get("shares"))
+        return {"symbol": rep["symbol"], "html": rep["html"], "markdown": rep["markdown"]}
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/compare", methods=["POST"])
@@ -561,7 +578,10 @@ def compare_route():
     target = (payload.get("target") or next(iter(fbs))).upper()
     profiles = {s: qatar.profile_for_year(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
                 for s, fs in fbs.items()}
-    return qscreen_analyze.compare(target, fbs, profiles)
+    try:
+        return qscreen_analyze.compare(target, fbs, profiles)
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/dcf", methods=["POST"])
@@ -579,8 +599,11 @@ def dcf_route():
     if not symbol:
         return {"error": "could not determine symbol"}, 400
     profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
-    return qscreen_dcf.value(symbol, filings, profile, payload.get("assumptions") or {},
-                             price=payload.get("price"), shares=payload.get("shares"))
+    try:
+        return qscreen_dcf.value(symbol, filings, profile, payload.get("assumptions") or {},
+                                 price=payload.get("price"), shares=payload.get("shares"))
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/segments", methods=["POST"])
@@ -594,7 +617,10 @@ def segments():
     meta = filing.get("metadata") or {}
     profile = qatar.profile_for_year(meta.get("symbol") or payload.get("symbol") or "",
                                      meta.get("fiscal_year") or payload.get("year"))
-    return qscreen_analyze.analyze_segments(filing, profile)
+    try:
+        return qscreen_analyze.analyze_segments(filing, profile)
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/upload", methods=["POST"])

@@ -25,7 +25,8 @@ def test_fcfe_dcf_golden():
 
 def test_residual_income_golden_and_book_anchor():
     ri = d.residual_income(1000, 0.15, discount_rate=0.10, growth=0.05, terminal_growth=0.025, years=5)
-    assert math.isclose(ri["equity_value"], 1749.05, abs_tol=1.0)
+    # Gordon continuing value uses RI_{N+1}/(r-gt) (no spurious extra (1+gt) growth step).
+    assert math.isclose(ri["equity_value"], 1735.84, abs_tol=0.5)
     # The key sanity check: when ROE == cost of equity, value collapses to book.
     flat = d.residual_income(1000, 0.10, discount_rate=0.10, growth=0.05, terminal_growth=0.025, years=5)
     assert math.isclose(flat["equity_value"], 1000.0, abs_tol=1e-6)

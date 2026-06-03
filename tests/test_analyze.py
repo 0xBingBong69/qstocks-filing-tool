@@ -76,9 +76,10 @@ def test_bank_ratios_golden():
     assert round(r["roe"]["value"], 4) == round(15000 / 97500, 4) and r["roe"]["basis"] == "computed"
     assert round(r["roa"]["value"], 6) == round(15000 / 1175000, 6)
     assert round(r["nim"]["value"], 6) == round(24000 / 1175000, 6) and r["nim"]["basis"] == "computed"
-    assert r["cost_income"] == {"value": 22.0, "basis": "reported"}      # printed KPI preferred
+    # Reported KPI ratios are normalized percent→fraction (22.0% → 0.22), so all ratios share one unit.
+    assert r["cost_income"]["basis"] == "reported" and round(r["cost_income"]["value"], 4) == 0.22
     assert round(r["ldr"]["value"], 4) == round(800000 / 850000, 4)
-    assert r["npl"]["value"] == 3.0 and r["car"]["value"] == 19.5
+    assert round(r["npl"]["value"], 4) == 0.03 and round(r["car"]["value"], 4) == 0.195
 
 
 def test_islamic_bank_has_no_nim():

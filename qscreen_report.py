@@ -61,7 +61,7 @@ def _num(x):
 def _pct(x):
     if x is None:
         return "—"
-    return f"{(x * 100 if abs(x) <= 1.5 else x):.1f}%"
+    return f"{x * 100:.1f}%"      # ratio values are fractions (KPIs normalized at source)
 
 
 def _signed_pct(x):
@@ -128,9 +128,11 @@ def _render_html(ctx, series, ratios, trends, flags, segments, valuation):
     E = html.escape
     yrs = ctx["years"]
     latest = yrs[-1] if yrs else None
-    P = [f"<h1>{E(ctx['name'])} <span class='muted'>[{ctx['symbol']}]</span></h1>",
-         f"<p class='sub'>{E(ctx.get('sub_sector') or '')} · {ctx['archetype'].replace('_', ' ')} · "
-         f"reports in {ctx.get('currency') or '—'} under {E(ctx.get('framework') or 'IFRS')}</p>"]
+    cur = E(str(ctx.get("currency") or ""))      # filing-derived → must be escaped
+    sym = E(str(ctx.get("symbol") or ""))
+    P = [f"<h1>{E(ctx['name'])} <span class='muted'>[{sym}]</span></h1>",
+         f"<p class='sub'>{E(ctx.get('sub_sector') or '')} · {E(ctx['archetype'].replace('_', ' '))} · "
+         f"reports in {cur or '—'} under {E(ctx.get('framework') or 'IFRS')}</p>"]
     if yrs:
         P.append(f"<p class='muted'>Analyst report · fiscal years {yrs[0]}–{yrs[-1]} · "
                  f"generated offline from filing data</p>")
@@ -191,8 +193,8 @@ def _render_html(ctx, series, ratios, trends, flags, segments, valuation):
     v = (valuation or {}).get("valuation")
     if v:
         P.append("<h2>Valuation (DCF)</h2>")
-        head = (f"{ctx.get('currency') or ''} {_num(v['per_share'])} / share" if v.get("per_share")
-                else f"{ctx.get('currency') or ''} {_num(v['equity_value'])} equity value")
+        head = (f"{cur} {_num(v['per_share'])} / share" if v.get("per_share")
+                else f"{cur} {_num(v['equity_value'])} equity value")
         P.append(f"<p class='hl'>{head}</p>")
         up = valuation.get("upside")
         P.append(f"<p class='muted'>model: {v['model']} · terminal {v['terminal_pct'] * 100:.0f}% of value"

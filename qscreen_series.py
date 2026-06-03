@@ -22,14 +22,19 @@ import re
 import sys
 from pathlib import Path
 
-_YEAR_RE = re.compile(r"(?:19|20)\d{2}")
+# A standalone 4-digit fiscal year (word-boundary, not embedded in a longer number).
+_YEAR_RE = re.compile(r"(?<!\d)(19|20)\d{2}(?!\d)")
 
 
 def _year_from_label(label) -> int | None:
+    """Extract the fiscal year from a period label. Takes the LAST plausible year
+    token (so 'year ended 31 Dec 2023' and the range '2022-2023' both give 2023)
+    and bounds it to a sane window to avoid grabbing incidental numbers."""
     if label is None:
         return None
-    m = _YEAR_RE.search(str(label))
-    return int(m.group(0)) if m else None
+    years = [int(m.group(0)) for m in _YEAR_RE.finditer(str(label))]
+    years = [y for y in years if 1990 <= y <= 2099]
+    return years[-1] if years else None
 
 
 def _collect(filing: dict) -> tuple[dict, dict, dict]:
@@ -90,10 +95,24 @@ def _absorb(years: dict, restatements: list, year, source: str, meta: dict,
 def build_series(symbol: str, filings: list[dict], *, annual_only: bool = True) -> dict:
     """Build a per-symbol multi-year series from extracted filing dicts."""
     sym = symbol.strip().upper()
-    fs = [f for f in filings if (f.get("metadata") or {}).get("symbol", "").upper() == sym] or list(filings)
+    warnings: list[str] = []
+    matched = [f for f in filings if (f.get("metadata") or {}).get("symbol", "").upper() == sym]
+    # Only fall back to using everything when NO filing carries any symbol at all —
+    # never silently absorb a different company's filing into this series.
+    if matched:
+        fs = matched
+    elif any((f.get("metadata") or {}).get("symbol") for f in filings):
+        return {"symbol": sym, "currency": None, "unit_scale": None, "years": {}, "codes": [],
+                "restatements": [], "warnings": [f"no filing matches symbol {sym}; refusing to mix companies"]}
+    else:
+        fs = list(filings)
     if annual_only:
         fy = [f for f in fs if (f.get("metadata") or {}).get("fiscal_period") == "FY"]
-        fs = fy or fs
+        if fy:
+            fs = fy
+        elif fs:
+            warnings.append("no annual (FY) filing found — series built from interim periods; "
+                            "treat year-over-year figures and any DCF seeding with caution")
     # Newest reported year first, so a reported year is seen before older filings' comparatives.
     fs = sorted(fs, key=lambda f: (f.get("metadata") or {}).get("fiscal_year") or 0, reverse=True)
 
@@ -116,7 +135,7 @@ def build_series(symbol: str, filings: list[dict], *, annual_only: bool = True) 
         "years": dict(sorted(years.items())),
         "codes": codes,
         "restatements": restatements,
-        "warnings": [] if years else ["no annual data found in the provided filings"],
+        "warnings": warnings + ([] if years else ["no usable data found in the provided filings"]),
     }
 
 
