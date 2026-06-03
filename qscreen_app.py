@@ -154,10 +154,12 @@ PAGE = """<!doctype html>
 <details class="cmp"><summary>Compare / screen extracted filings</summary>
   <p class="muted">Select already-extracted <code>*_filing.json</code> files.
   <b>Compare</b> ranks them as peers (on the first file's company type);
-  <b>Dashboard</b> screens the whole basket and downloads a ranked watchlist.</p>
+  <b>Dashboard</b> screens the whole basket; <b>Excel workbook</b> combines several
+  years of one company into a single multi-year transcript.</p>
   <input type="file" id="cmpfiles" accept="application/json,.json" multiple>
   <button id="cmpgo" type="button">Compare</button>
   <button id="dashgo" type="button">Dashboard</button>
+  <button id="wbgo" type="button">Excel workbook</button>
   <div id="cmpout"></div>
 </details>
 <script>
@@ -245,6 +247,19 @@ async function runDashboard(){
     const url = URL.createObjectURL(new Blob([d.html], {type:'text/html'}));
     const a = document.createElement('a'); a.href = url; a.download = 'watchlist.html'; a.click(); URL.revokeObjectURL(url);
     out.innerHTML = '<span class="muted">Downloaded watchlist.html — screened '+d.count+' stock(s).</span>';
+  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+}
+async function runWorkbook(){
+  const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
+  if(!inp.files || !inp.files.length){ out.innerHTML='<span class="warn">Pick filing JSON files (same company, multiple years).</span>'; return; }
+  out.textContent = 'Building workbook…';
+  try {
+    const filings = await Promise.all([...inp.files].map(f => f.text().then(t => JSON.parse(t))));
+    const r = await fetch('/workbook', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filings})});
+    if(!r.ok){ const d = await r.json().catch(()=>({})); throw new Error(d.error||'failed'); }
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a'); a.href = url; a.download = 'transcript.xlsx'; a.click(); URL.revokeObjectURL(url);
+    out.innerHTML = '<span class="muted">Downloaded transcript.xlsx — '+filings.length+' filing(s).</span>';
   } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
 }
 function renderDcfPanel(){
@@ -421,6 +436,8 @@ const cmpBtn = document.getElementById('cmpgo');
 if (cmpBtn) cmpBtn.onclick = runCompare;
 const dashBtn = document.getElementById('dashgo');
 if (dashBtn) dashBtn.onclick = runDashboard;
+const wbBtn = document.getElementById('wbgo');
+if (wbBtn) wbBtn.onclick = runWorkbook;
 </script>
 </body></html>"""
 

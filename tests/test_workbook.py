@@ -91,3 +91,21 @@ def test_workbook_handles_thin_filing():
 def test_workbook_bytes_is_valid_xlsx():
     data = wb.workbook_bytes(_filing())
     assert data[:2] == b"PK" and len(data) > 2000
+
+
+def _year_filing(year, ni):
+    return {"metadata": {"symbol": "QNBK", "fiscal_year": year, "fiscal_period": "FY", "currency": "QAR"},
+            "statements": [{"type": "income_statement", "title": "IS", "period_label": str(year),
+                            "verbatim_text": "x", "line_items": [
+                                {"account_code": "IS_NET_INCOME", "label_verbatim": "Profit", "value": ni,
+                                 "comparatives": [{"period_label": str(year - 1), "value": ni - 1000}]}]}]}
+
+
+def test_multi_filing_workbook_spans_all_years():
+    f22, f23 = _year_filing(2022, 14000), _year_filing(2023, 15000)
+    my = _load(f23, [f22, f23])["Financials (multi-year)"]
+    headers = [c.value for c in my[1]]
+    assert headers[:2] == ["Metric", "Code"] and {"2021", "2022", "2023"} <= set(headers)
+    ni = next(r for r in my.iter_rows(min_row=2) if r[1].value == "IS_NET_INCOME")
+    by_year = {my.cell(1, c).value: ni[c - 1].value for c in range(3, len(headers) + 1)}
+    assert by_year["2023"] == 15000 and by_year["2022"] == 14000 and by_year["2021"] == 13000

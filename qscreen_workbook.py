@@ -18,8 +18,12 @@ JSON contract is untouched — this is a parallel, human-facing output.
 """
 from __future__ import annotations
 
+import argparse
 import io
+import json
 import re
+import sys
+from pathlib import Path
 
 from qscreen_series import build_series
 
@@ -209,3 +213,28 @@ def workbook_bytes(filing: dict, filings: list[dict] | None = None) -> bytes:
     buf = io.BytesIO()
     build_workbook(filing, filings).save(buf)
     return buf.getvalue()
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(
+        description="Build an Excel financial-transcript workbook from one or more filings "
+                    "(same company; extra years extend the multi-year grid).")
+    p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
+    p.add_argument("--symbol", help="ticker for the output filename (else taken from the latest filing)")
+    p.add_argument("--out", help="output .xlsx path (default: <SYMBOL>_transcript.xlsx)")
+    args = p.parse_args()
+
+    filings = [json.loads(Path(fp).read_text(encoding="utf-8")) for fp in args.filings]
+    filings.sort(key=lambda f: (f.get("metadata") or {}).get("fiscal_year") or 0)
+    primary = filings[-1]                                   # latest year supplies the statement sheets
+    sym = (args.symbol or (primary.get("metadata") or {}).get("symbol") or "filing").upper()
+    out = args.out or f"{sym}_transcript.xlsx"
+    save_workbook(primary, out, filings)
+    years = sorted({(f.get("metadata") or {}).get("fiscal_year") for f in filings
+                    if (f.get("metadata") or {}).get("fiscal_year")})
+    print(f"📑 Excel transcript ({len(filings)} filing(s), reported years {years}) → {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

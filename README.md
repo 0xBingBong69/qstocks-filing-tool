@@ -107,6 +107,17 @@ of these (or upload the JSON). `qscreen_workbook.build_workbook(filing, filings=
 builds the workbook programmatically; `POST /workbook` and `POST /export.csv` serve
 the Excel and CSV downloads.
 
+**Combine several years into one workbook** — the multi-year grid spans every year
+you give it:
+
+```bash
+python3 qscreen_workbook.py QNBK_2021_FY_filing.json QNBK_2022_FY_filing.json QNBK_2023_FY_filing.json
+# → QNBK_transcript.xlsx  (statement sheets from the latest year + a 2020–2023 grid)
+```
+
+In the app, the **Excel workbook** button in the compare/screen panel does the same
+from a set of selected filing JSONs.
+
 ### Batch mode
 
 Process many filings from a CSV manifest (`pdf,symbol,sector,year[,period]`):
