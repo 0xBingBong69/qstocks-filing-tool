@@ -1,0 +1,6 @@
+.env
+*_filing.json
+__pycache__/
+*.pyc
+.venv/
+venv/
