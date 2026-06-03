@@ -215,6 +215,21 @@ python3 qscreen_report.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_fi
 The browser app has a **"📰 Analyst report"** button after each extract (downloads the HTML);
 `POST /report` returns `{html, markdown}`.
 
+### Watchlist screener
+
+`qscreen_portfolio.roll_up()` screens a whole basket at once — it runs each stock through the
+analysis + valuation engines and ranks them **healthiest-first** (fewest red-flag alerts,
+then ROE), with latest-year ROE / margin, net-profit growth, red-flag counts and DCF value
+(and upside when a price is supplied) side by side.
+
+```bash
+python3 qscreen_portfolio.py QNBK_2023_FY_filing.json CBQK_2023_FY_filing.json ORDS_2023_FY_filing.json
+# → watchlist.html + watchlist.json
+```
+
+In the browser, the **Dashboard** button (in the compare/screen panel) takes several
+`*_filing.json` files and downloads the ranked watchlist; `POST /portfolio` is the API.
+
 ## Testing
 
 ```bash
