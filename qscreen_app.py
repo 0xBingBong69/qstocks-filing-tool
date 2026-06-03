@@ -32,6 +32,7 @@ import qscreen_ingest as engine
 import qscreen_analyze
 import qscreen_dcf
 import qscreen_report
+import qscreen_portfolio
 
 try:
     from flask import Flask, request, Response, send_file
@@ -147,11 +148,13 @@ PAGE = """<!doctype html>
 </form>
 <div id="out"></div>
 
-<details class="cmp"><summary>Compare extracted filings against peers</summary>
-  <p class="muted">Select two or more already-extracted <code>*_filing.json</code> files (a stock and its peers).
-  They're ranked on the first file's company type.</p>
+<details class="cmp"><summary>Compare / screen extracted filings</summary>
+  <p class="muted">Select already-extracted <code>*_filing.json</code> files.
+  <b>Compare</b> ranks them as peers (on the first file's company type);
+  <b>Dashboard</b> screens the whole basket and downloads a ranked watchlist.</p>
   <input type="file" id="cmpfiles" accept="application/json,.json" multiple>
   <button id="cmpgo" type="button">Compare</button>
+  <button id="dashgo" type="button">Dashboard</button>
   <div id="cmpout"></div>
 </details>
 <script>
@@ -225,6 +228,19 @@ async function runCompare(){
     const filings = await Promise.all([...inp.files].map(f => f.text().then(t => JSON.parse(t))));
     const r = await fetch('/compare', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filings})});
     out.innerHTML = renderCompare(await r.json());
+  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+}
+async function runDashboard(){
+  const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
+  if(!inp.files || !inp.files.length){ out.innerHTML='<span class="warn">Pick filing JSON files.</span>'; return; }
+  out.textContent = 'Screening…';
+  try {
+    const filings = await Promise.all([...inp.files].map(f => f.text().then(t => JSON.parse(t))));
+    const r = await fetch('/portfolio', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filings})});
+    const d = await r.json(); if(!r.ok) throw new Error(d.error||'failed');
+    const url = URL.createObjectURL(new Blob([d.html], {type:'text/html'}));
+    const a = document.createElement('a'); a.href = url; a.download = 'watchlist.html'; a.click(); URL.revokeObjectURL(url);
+    out.innerHTML = '<span class="muted">Downloaded watchlist.html — screened '+d.count+' stock(s).</span>';
   } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
 }
 function renderDcfPanel(){
@@ -381,6 +397,8 @@ f.onsubmit = async (e) => {
 };
 const cmpBtn = document.getElementById('cmpgo');
 if (cmpBtn) cmpBtn.onclick = runCompare;
+const dashBtn = document.getElementById('dashgo');
+if (dashBtn) dashBtn.onclick = runDashboard;
 </script>
 </body></html>"""
 
@@ -487,6 +505,24 @@ def analyze_route():
         return {"error": "could not determine symbol"}, 400
     profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
     return qscreen_analyze.analyze(symbol, filings, profile)
+
+
+@app.route("/portfolio", methods=["POST"])
+def portfolio_route():
+    """Screen & rank a basket. Body: {filings:[...]} (grouped by symbol). Returns
+    the ranked board plus a ready-to-download HTML dashboard."""
+    payload = request.get_json(silent=True) or {}
+    filings = payload.get("filings")
+    if not isinstance(filings, list) or not filings:
+        return {"error": "missing 'filings' (list)"}, 400
+    groups = qscreen_analyze.group_by_symbol(filings)
+    if not groups:
+        return {"error": "no filings carry a metadata.symbol"}, 400
+    profiles = {s: qatar.profile_for_year(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
+                for s, fs in groups.items()}
+    board = qscreen_portfolio.roll_up(groups, profiles)
+    return {"count": board["count"], "rows": board["rows"],
+            "html": qscreen_portfolio.render_html(board)}
 
 
 @app.route("/report", methods=["POST"])

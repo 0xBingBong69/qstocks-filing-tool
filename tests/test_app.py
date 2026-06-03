@@ -169,6 +169,24 @@ def test_report_route_missing(client):
     assert client.post("/report", json={}).status_code == 400
 
 
+def test_portfolio_route(client):
+    def f(sym, ni, eq):
+        li = [{"account_code": c, "label_verbatim": c, "value": v,
+               "comparatives": [{"period_label": "2022", "value": v}]}
+              for c, v in [("IS_NET_INCOME", ni), ("BS_TOTAL_EQUITY", eq)]]
+        return {"metadata": {"symbol": sym, "fiscal_year": 2023, "fiscal_period": "FY", "currency": "QAR"},
+                "statements": [{"type": "income_statement", "verbatim_text": "x", "line_items": li}]}
+    r = client.post("/portfolio", json={"filings": [f("QNBK", 15000, 100000), f("QIBK", 4000, 40000)]})
+    assert r.status_code == 200
+    j = r.get_json()
+    assert j["count"] == 2 and j["html"].startswith("<!doctype html>")
+    assert {row["symbol"] for row in j["rows"]} == {"QNBK", "QIBK"}
+
+
+def test_portfolio_route_missing(client):
+    assert client.post("/portfolio", json={}).status_code == 400
+
+
 def test_upload_route_folds_analysis(client, monkeypatch):
     monkeypatch.setenv("INGEST_TOKEN", "tok")
     captured = {}
