@@ -153,6 +153,22 @@ def test_compare_route_missing(client):
     assert client.post("/compare", json={}).status_code == 400
 
 
+def test_report_route(client):
+    li = [{"account_code": c, "label_verbatim": c, "value": v,
+           "comparatives": [{"period_label": "2022", "value": v}]}
+          for c, v in [("IS_NET_INCOME", 15000), ("BS_TOTAL_EQUITY", 100000)]]
+    filing = {"metadata": {"symbol": "QNBK", "fiscal_year": 2023, "fiscal_period": "FY", "currency": "QAR"},
+              "statements": [{"type": "income_statement", "verbatim_text": "x", "line_items": li}]}
+    r = client.post("/report", json={"filing": filing})
+    assert r.status_code == 200
+    j = r.get_json()
+    assert j["symbol"] == "QNBK" and j["html"].startswith("<!doctype html>") and j["markdown"]
+
+
+def test_report_route_missing(client):
+    assert client.post("/report", json={}).status_code == 400
+
+
 def test_upload_route_folds_analysis(client, monkeypatch):
     monkeypatch.setenv("INGEST_TOKEN", "tok")
     captured = {}

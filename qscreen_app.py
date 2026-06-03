@@ -31,6 +31,7 @@ from pathlib import Path
 import qscreen_ingest as engine
 import qscreen_analyze
 import qscreen_dcf
+import qscreen_report
 
 try:
     from flask import Flask, request, Response, send_file
@@ -322,6 +323,7 @@ f.onsubmit = async (e) => {
       lastSymbol = (data.filing && data.filing.metadata && data.filing.metadata.symbol) || '';
       lastAnalysis = data.analysis || null;
       html += '\\n\\n<a class="dl" id="dl" href="#">⬇ Download ' + data.filename + '</a>';
+      html += '<a class="dl" id="rep" href="#">📰 Analyst report</a>';
       if (UPLOAD_ENABLED && !data.problems.length)
         html += '<a class="dl up" id="up" href="#">⬆ Upload to qscreen.app</a>'
              + '<label class="inc"><input type="checkbox" id="incan"> include analysis in upload</label>';
@@ -337,6 +339,18 @@ f.onsubmit = async (e) => {
       };
       const dg = document.getElementById('dcfgo');
       if (dg) dg.onclick = (ev) => { ev.preventDefault(); runDcf(); };
+      const rp = document.getElementById('rep');
+      if (rp) rp.onclick = async (ev) => {
+        ev.preventDefault(); const label = rp.textContent; rp.textContent = '📰 Building…';
+        try {
+          const r = await fetch('/report', { method: 'POST', headers: {'Content-Type':'application/json'},
+                                             body: JSON.stringify({ filing: lastFiling, symbol: lastSymbol }) });
+          const d = await r.json(); if (!r.ok) throw new Error(d.error || 'failed');
+          const url = URL.createObjectURL(new Blob([d.html], {type:'text/html'}));
+          const a = document.createElement('a'); a.href = url; a.download = (lastSymbol||'report') + '_report.html'; a.click();
+          URL.revokeObjectURL(url); rp.textContent = label;
+        } catch (e) { rp.textContent = '📰 Report failed'; }
+      };
       const up = document.getElementById('up');
       if (up) up.onclick = async (ev) => {
         ev.preventDefault();
@@ -473,6 +487,26 @@ def analyze_route():
         return {"error": "could not determine symbol"}, 400
     profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
     return qscreen_analyze.analyze(symbol, filings, profile)
+
+
+@app.route("/report", methods=["POST"])
+def report_route():
+    """Build the one-page analyst report (HTML + Markdown) for a filing/series."""
+    payload = request.get_json(silent=True) or {}
+    filings = payload.get("filings")
+    if filings is None and isinstance(payload.get("filing"), dict):
+        filings = [payload["filing"]]
+    if not isinstance(filings, list) or not filings:
+        return {"error": "missing 'filings' (list) or 'filing' (object)"}, 400
+    meta = (filings[-1].get("metadata") or {})
+    symbol = payload.get("symbol") or meta.get("symbol") or ""
+    if not symbol:
+        return {"error": "could not determine symbol"}, 400
+    profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
+    rep = qscreen_report.build_report(symbol, filings, profile,
+                                      assumptions=payload.get("assumptions") or {},
+                                      price=payload.get("price"), shares=payload.get("shares"))
+    return {"symbol": rep["symbol"], "html": rep["html"], "markdown": rep["markdown"]}
 
 
 @app.route("/compare", methods=["POST"])
