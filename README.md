@@ -186,6 +186,28 @@ python3 qscreen_analyze.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_f
 The browser app shows key ratios + red flags after each extract; `POST /analyze` returns
 the full analysis object for one or more filings.
 
+### Quarterly / TTM roll-ups
+
+QSE interim filings report flow items (income statement, cash flow) as **YTD cumulative**
+(Q1 = 3 months, H1/Q2 = 6, 9M/Q3 = 9, FY = 12) while balance-sheet items are point-in-time.
+`qscreen_periods.build_ttm()` turns a set of filings for one company into a clean
+**trailing-twelve-month** view:
+
+- **TTM flows** = latest YTD + prior FY − prior matching YTD (e.g. `9M 2024 + FY 2023 − 9M 2023`)
+- **stocks** = the latest period's balance-sheet values (point-in-time)
+- **standalone quarter** = consecutive YTD deltas (e.g. `9M − H1 = Q3`)
+
+It never silently annualises — if the prior-year filings needed for a true TTM aren't
+supplied, it returns the reported YTD and says so in `basis`/`warnings`.
+
+```bash
+python3 qscreen_periods.py QNBK_2023_9M_filing.json QNBK_2023_FY_filing.json QNBK_2024_9M_filing.json
+# → As of 9M 2024 — TTM = 9M 2024 + FY 2023 − 9M 2023
+```
+
+In the app, the **TTM** button in the compare/screen panel does the same from selected
+filings; `POST /ttm` returns the roll-up as JSON.
+
 ### Valuation — DCF / forecast simulator
 
 `qscreen_dcf.value()` picks the right model for the company type — **FCFE DCF** for

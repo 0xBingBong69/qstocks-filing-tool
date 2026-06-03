@@ -188,6 +188,21 @@ def test_statements_route_missing(client):
     assert client.post("/statements", json={}).status_code == 400
 
 
+def test_ttm_route(client):
+    def f(y, p, ni):
+        return {"metadata": {"symbol": "QNBK", "fiscal_year": y, "fiscal_period": p},
+                "statements": [{"type": "income_statement",
+                                "line_items": [{"account_code": "IS_NET_INCOME", "value": ni}]}]}
+    r = client.post("/ttm", json={"filings": [f(2023, "9M", 10500), f(2023, "FY", 14000),
+                                              f(2024, "9M", 12000)]})
+    assert r.status_code == 200
+    assert r.get_json()["flows"]["IS_NET_INCOME"] == 15500
+
+
+def test_ttm_route_missing(client):
+    assert client.post("/ttm", json={}).status_code == 400
+
+
 def _bank_filing(sym, ni, eq):
     li = [{"account_code": c, "label_verbatim": c, "value": v,
            "comparatives": [{"period_label": "2022", "value": v}]}

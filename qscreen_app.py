@@ -35,6 +35,7 @@ import qscreen_report
 import qscreen_portfolio
 import qscreen_workbook
 import qscreen_statements
+import qscreen_periods
 
 try:
     from flask import Flask, request, Response, send_file
@@ -156,11 +157,13 @@ PAGE = """<!doctype html>
   <p class="muted">Select already-extracted <code>*_filing.json</code> files.
   <b>Compare</b> ranks them as peers (on the first file's company type);
   <b>Dashboard</b> screens the whole basket; <b>Excel workbook</b> combines several
-  years of one company into a single multi-year transcript.</p>
+  years of one company into a single multi-year transcript; <b>TTM</b> rolls interim
+  (YTD) filings into a trailing-twelve-month view.</p>
   <input type="file" id="cmpfiles" accept="application/json,.json" multiple>
   <button id="cmpgo" type="button">Compare</button>
   <button id="dashgo" type="button">Dashboard</button>
   <button id="wbgo" type="button">Excel workbook</button>
+  <button id="ttmgo" type="button">TTM</button>
   <div id="cmpout"></div>
 </details>
 <script>
@@ -248,6 +251,23 @@ async function runDashboard(){
     const url = URL.createObjectURL(new Blob([d.html], {type:'text/html'}));
     const a = document.createElement('a'); a.href = url; a.download = 'watchlist.html'; a.click(); URL.revokeObjectURL(url);
     out.innerHTML = '<span class="muted">Downloaded watchlist.html — screened '+d.count+' stock(s).</span>';
+  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+}
+async function runTtm(){
+  const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
+  if(!inp.files || !inp.files.length){ out.innerHTML='<span class="warn">Pick filing JSON files (one company, annual and/or interim).</span>'; return; }
+  out.textContent = 'Rolling up…';
+  try {
+    const filings = await Promise.all([...inp.files].map(f => f.text().then(t => JSON.parse(t))));
+    const r = await fetch('/ttm', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filings})});
+    const d = await r.json(); if(!r.ok) throw new Error(d.error||'failed');
+    function tbl(obj){ const rows = Object.entries(obj||{}).sort(); if(!rows.length) return '<p class="muted">—</p>';
+      return '<table><tr><th>Flow metric</th><th>Value</th></tr>' + rows.map(([c,v]) => '<tr><td>'+esc(c)+'</td><td>'+fmtNum(v)+'</td></tr>').join('') + '</table>'; }
+    let h = '<div class="seg"><h3>TTM — as of '+esc(d.as_of||'?')+'</h3><p class="muted">'+esc(d.basis||'')+'</p>'+tbl(d.flows);
+    if(d.standalone_quarter) h += '<h3>'+esc(d.standalone_quarter.label)+'</h3>'+tbl(d.standalone_quarter.flows);
+    if((d.warnings||[]).length) h += '<p class="warn">'+d.warnings.map(esc).join('<br>')+'</p>';
+    h += '<p class="muted">Periods: '+(d.periods||[]).map(esc).join(', ')+'</p></div>';
+    out.innerHTML = h;
   } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
 }
 async function runWorkbook(){
@@ -452,6 +472,8 @@ const dashBtn = document.getElementById('dashgo');
 if (dashBtn) dashBtn.onclick = runDashboard;
 const wbBtn = document.getElementById('wbgo');
 if (wbBtn) wbBtn.onclick = runWorkbook;
+const ttmBtn = document.getElementById('ttmgo');
+if (ttmBtn) ttmBtn.onclick = runTtm;
 </script>
 </body></html>"""
 
@@ -567,6 +589,21 @@ def workbook_route():
     sym = (filings[-1].get("metadata") or {}).get("symbol") or "filing"
     return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="{sym}_transcript.xlsx"'})
+
+
+@app.route("/ttm", methods=["POST"])
+def ttm_route():
+    """Period-aware TTM / quarterly roll-up for one company. Body: {filings|filing}."""
+    payload = request.get_json(silent=True) or {}
+    filings = payload.get("filings")
+    if filings is None and isinstance(payload.get("filing"), dict):
+        filings = [payload["filing"]]
+    if not isinstance(filings, list) or not filings:
+        return {"error": "missing 'filings' (list) or 'filing' (object)"}, 400
+    try:
+        return qscreen_periods.build_ttm(filings)
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/statements", methods=["POST"])
