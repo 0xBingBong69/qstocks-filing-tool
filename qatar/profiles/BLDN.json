@@ -1,0 +1,41 @@
+{
+  "ticker": "BLDN",
+  "company_name": "Baladna",
+  "names": [
+    {
+      "name": "Baladna",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Food Production",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Dairy",
+      "Juice",
+      "Livestock"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "WDAM"
+  ],
+  "accounting_quirks": []
+}

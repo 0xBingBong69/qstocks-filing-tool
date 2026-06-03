@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qscreen-filing-tool"
+description = "PDF → lossless QSE filing JSON (browser app + CLI) for qscreen.app"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = [
+    "pdfplumber>=0.11",
+    "requests>=2.31",
+    "flask>=3.0",
+]
+
+[project.optional-dependencies]
+xlsx = ["openpyxl>=3.1"]                                   # --export xlsx
+ocr = ["pytesseract>=0.3.10", "pdf2image>=1.17"]          # --ocr (needs system tesseract + poppler)
+dev = ["pytest>=7", "openpyxl>=3.1"]
+
+[project.scripts]
+qscreen-ingest = "qscreen_ingest:main"
+qscreen-app = "qscreen_app:main"
+
+[tool.setuptools]
+py-modules = ["qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze"]
+packages = ["qatar"]
+
+[tool.setuptools.package-data]
+qatar = ["profiles/*.json"]
+
+[tool.setuptools.dynamic]
+version = { attr = "qscreen_ingest.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

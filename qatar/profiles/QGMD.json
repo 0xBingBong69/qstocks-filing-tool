@@ -1,0 +1,33 @@
+{
+  "ticker": "QGMD",
+  "company_name": "Qatar German Company for Medical Devices",
+  "names": [
+    {
+      "name": "Qatar German Company for Medical Devices",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Medical Devices",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

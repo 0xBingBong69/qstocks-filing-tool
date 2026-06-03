@@ -1,0 +1,33 @@
+{
+  "ticker": "QOIS",
+  "company_name": "Qatar Oman Investment Company",
+  "names": [
+    {
+      "name": "Qatar Oman Investment Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Joint Investment",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

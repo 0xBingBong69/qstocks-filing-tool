@@ -1,0 +1,35 @@
+{
+  "ticker": "QIGD",
+  "company_name": "Qatari Investors Group",
+  "names": [
+    {
+      "name": "Qatari Investors Group",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Industrial Holding",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "MHAR"
+  ],
+  "accounting_quirks": []
+}

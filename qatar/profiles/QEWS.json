@@ -1,0 +1,41 @@
+{
+  "ticker": "QEWS",
+  "company_name": "Qatar Electricity & Water Company",
+  "names": [
+    {
+      "name": "Qatar Electricity & Water Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Utilities",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar",
+      "International"
+    ],
+    "by_business": [
+      "Power generation",
+      "Water desalination"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": [
+    "Several power/water JVs equity-accounted (Ras Girtas, etc.)"
+  ]
+}

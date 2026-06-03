@@ -1,0 +1,39 @@
+{
+  "ticker": "DOHI",
+  "company_name": "Doha Insurance Group",
+  "names": [
+    {
+      "name": "Doha Insurance Group",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Conventional Insurance",
+  "archetype": "insurance",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_LOSS_RATIO",
+    "KPI_EXPENSE_RATIO",
+    "KPI_COMBINED",
+    "KPI_GWP",
+    "KPI_NET_PREMIUMS",
+    "KPI_ROE"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "QATI"
+  ],
+  "accounting_quirks": []
+}

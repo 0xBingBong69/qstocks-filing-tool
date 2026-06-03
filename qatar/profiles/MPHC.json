@@ -1,0 +1,44 @@
+{
+  "ticker": "MPHC",
+  "company_name": "Mesaieed Petrochemical Holding Company",
+  "names": [
+    {
+      "name": "Mesaieed Petrochemical Holding Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Petrochemicals",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Petrochemicals (olefins)",
+      "Plastics",
+      "Alpha olefins"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "IQCD",
+    "QAMC"
+  ],
+  "accounting_quirks": [
+    "Holding company of petrochemical JVs (equity-accounted)"
+  ]
+}

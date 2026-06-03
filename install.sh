@@ -41,8 +41,9 @@ cat <<EOF
 ✅ Installed. The tool lives at:
      $TOOL
 
-ONE-TIME: create $DEST/.env with your keys:
-     OPENROUTER_API_KEY=sk-or-...
+ONE-TIME: create $DEST/.env with your keys (set the one for your provider —
+minimax / openrouter / kimi / openai / anthropic; see --list-providers):
+     MINIMAX_API_KEY=...                # or OPENROUTER_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / MOONSHOT_API_KEY
      INGEST_TOKEN=...                   # qscreen.app ingest token (to upload)
      QSCREEN_API_URL=https://qscreen.app
 

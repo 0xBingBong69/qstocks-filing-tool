@@ -1,0 +1,35 @@
+{
+  "ticker": "WDAM",
+  "company_name": "Widam Food Company",
+  "names": [
+    {
+      "name": "Widam Food Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Food Production",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "BLDN"
+  ],
+  "accounting_quirks": []
+}

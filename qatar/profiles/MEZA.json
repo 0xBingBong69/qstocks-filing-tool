@@ -1,0 +1,35 @@
+{
+  "ticker": "MEZA",
+  "company_name": "MEEZA",
+  "names": [
+    {
+      "name": "MEEZA",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "IT Services",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "TQES"
+  ],
+  "accounting_quirks": []
+}

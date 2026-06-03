@@ -1,6 +1,13 @@
 .env
 *_filing.json
+*_filing.csv
+*_filing.xlsx
 __pycache__/
 *.pyc
 .venv/
 venv/
+# packaging / build artifacts
+build/
+dist/
+*.egg-info/
+.pytest_cache/

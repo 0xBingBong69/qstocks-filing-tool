@@ -1,0 +1,40 @@
+{
+  "ticker": "VFQS",
+  "company_name": "Vodafone Qatar",
+  "names": [
+    {
+      "name": "Vodafone Qatar",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Telecom Operator",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Mobile",
+      "Fixed"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "ORDS"
+  ],
+  "accounting_quirks": []
+}

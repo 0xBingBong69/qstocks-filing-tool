@@ -1,0 +1,40 @@
+{
+  "ticker": "AHCS",
+  "company_name": "Aamal Company",
+  "names": [
+    {
+      "name": "Aamal Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Diversified Conglomerate",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Industrial Manufacturing",
+      "Trading & Distribution",
+      "Property",
+      "Managed Services"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

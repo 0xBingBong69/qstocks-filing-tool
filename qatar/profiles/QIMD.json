@@ -1,0 +1,33 @@
+{
+  "ticker": "QIMD",
+  "company_name": "Qatar Industrial Manufacturing Company",
+  "names": [
+    {
+      "name": "Qatar Industrial Manufacturing Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Diversified Manufacturing",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

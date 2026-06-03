@@ -1,0 +1,39 @@
+{
+  "ticker": "MERS",
+  "company_name": "Al Meera Consumer Goods Company",
+  "names": [
+    {
+      "name": "Al Meera Consumer Goods Company",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Supermarkets & Retail",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Retail",
+      "Wholesale",
+      "Logistics"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

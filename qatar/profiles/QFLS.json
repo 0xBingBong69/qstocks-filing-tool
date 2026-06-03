@@ -1,0 +1,40 @@
+{
+  "ticker": "QFLS",
+  "company_name": "Qatar Fuel Company (WOQOD)",
+  "names": [
+    {
+      "name": "Qatar Fuel Company (WOQOD)",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Fuel Retail",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Fuel retail",
+      "Non-fuel retail (Sidra)",
+      "Bunkering",
+      "Transport"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

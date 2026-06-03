@@ -1,0 +1,51 @@
+{
+  "ticker": "IQCD",
+  "company_name": "Industries Qatar",
+  "names": [
+    {
+      "name": "Industries Qatar",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Petrochemicals",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Petrochemicals",
+      "Fertilizers",
+      "Steel"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [
+    {
+      "year": 2022,
+      "type": "restructuring",
+      "title": "Qatar Steel operations wound down",
+      "effect": "Steel segment scaled back from 2022; mix shifts to petrochemicals/fertilizers."
+    }
+  ],
+  "peers": [
+    "MPHC",
+    "QAMC"
+  ],
+  "accounting_quirks": [
+    "Largely equity-accounted JVs (QAPCO, QAFCO, QASCO)"
+  ]
+}

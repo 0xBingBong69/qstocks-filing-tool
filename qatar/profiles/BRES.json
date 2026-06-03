@@ -1,0 +1,35 @@
+{
+  "ticker": "BRES",
+  "company_name": "Barwa Real Estate",
+  "names": [
+    {
+      "name": "Barwa Real Estate",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Property Development",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "MRDS"
+  ],
+  "accounting_quirks": []
+}

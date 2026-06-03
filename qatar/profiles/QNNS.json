@@ -1,0 +1,42 @@
+{
+  "ticker": "QNNS",
+  "company_name": "Qatar Navigation (Milaha)",
+  "names": [
+    {
+      "name": "Qatar Navigation (Milaha)",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Shipping & Marine",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar",
+      "International"
+    ],
+    "by_business": [
+      "Maritime & Logistics",
+      "Gas & Petrochem shipping",
+      "Offshore",
+      "Trading",
+      "Capital (investments)"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

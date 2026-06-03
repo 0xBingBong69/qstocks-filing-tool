@@ -1,0 +1,109 @@
+{
+  "ticker": "QNBK",
+  "company_name": "Qatar National Bank (QNB)",
+  "names": [
+    {
+      "name": "Qatar National Bank (QNB)",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Commercial Bank",
+  "archetype": "conventional_bank",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_CAR",
+    "KPI_NPL",
+    "KPI_COVERAGE",
+    "KPI_COST_INCOME",
+    "KPI_NIM",
+    "KPI_LDR",
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar",
+      "Egypt",
+      "Turkey",
+      "Other GCC",
+      "Europe",
+      "Asia"
+    ],
+    "by_business": [
+      "Corporate",
+      "Retail",
+      "Treasury",
+      "International"
+    ]
+  },
+  "subsidiaries": [
+    {
+      "name": "QNB AlAhli",
+      "country": "Egypt",
+      "currency": "EGP",
+      "from": 2013
+    },
+    {
+      "name": "QNB Finansbank",
+      "country": "Turkey",
+      "currency": "TRY",
+      "from": 2016
+    },
+    {
+      "name": "QNB Indonesia",
+      "country": "Indonesia",
+      "currency": "IDR",
+      "from": 2011
+    }
+  ],
+  "events": [
+    {
+      "year": 2013,
+      "type": "acquisition",
+      "title": "Acquired NSGB → QNB AlAhli (Egypt)",
+      "effect": "Adds the Egypt geography segment; EGP translation exposure from 2013."
+    },
+    {
+      "year": 2014,
+      "type": "regulation",
+      "title": "Basel III (QCB)",
+      "effect": "Capital adequacy reported under Basel III; CET1/AT1/Tier-2 split; AT1 instruments (often sukuk) shown in equity."
+    },
+    {
+      "year": 2016,
+      "type": "acquisition",
+      "title": "Acquired Finansbank → QNB Finansbank (Turkey)",
+      "effect": "Adds Turkey; large book; significant TRY translation effects thereafter."
+    },
+    {
+      "year": 2018,
+      "type": "accounting",
+      "title": "IFRS 9 (expected credit losses)",
+      "effect": "Loan-loss provisioning moves to forward-looking ECL with Stage 1/2/3; watch ECL coverage and staging migration."
+    },
+    {
+      "year": 2022,
+      "type": "accounting",
+      "title": "IAS 29 hyperinflation (Turkey)",
+      "effect": "Turkish operations reported under hyperinflation accounting from 2022."
+    }
+  ],
+  "peers": [
+    "CBQK",
+    "DHBK",
+    "ABQK",
+    "KCBK"
+  ],
+  "accounting_quirks": [
+    "AT1 capital instruments presented in equity",
+    "IAS 29 hyperinflation for Turkey from 2022"
+  ]
+}

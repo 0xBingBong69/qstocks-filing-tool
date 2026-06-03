@@ -1,0 +1,96 @@
+{
+  "ticker": "ORDS",
+  "company_name": "Ooredoo",
+  "names": [
+    {
+      "name": "Ooredoo",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Telecom Operator",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar",
+      "Indonesia",
+      "Iraq",
+      "Oman",
+      "Kuwait",
+      "Tunisia",
+      "Algeria",
+      "Maldives",
+      "Palestine"
+    ],
+    "by_business": [
+      "Mobile",
+      "Fixed",
+      "Wholesale"
+    ]
+  },
+  "subsidiaries": [
+    {
+      "name": "Indosat Ooredoo Hutchison",
+      "country": "Indonesia",
+      "currency": "IDR"
+    },
+    {
+      "name": "Asiacell",
+      "country": "Iraq",
+      "currency": "IQD"
+    },
+    {
+      "name": "Ooredoo Oman",
+      "country": "Oman",
+      "currency": "OMR"
+    },
+    {
+      "name": "Ooredoo Kuwait",
+      "country": "Kuwait",
+      "currency": "KWD"
+    },
+    {
+      "name": "Ooredoo Tunisia",
+      "country": "Tunisia",
+      "currency": "TND"
+    },
+    {
+      "name": "Ooredoo Algeria",
+      "country": "Algeria",
+      "currency": "DZD"
+    }
+  ],
+  "events": [
+    {
+      "year": 2022,
+      "type": "merger",
+      "title": "Indosat–Hutchison merger (Indonesia)",
+      "effect": "Indonesian unit became Indosat Ooredoo Hutchison in 2022; changes consolidation."
+    },
+    {
+      "year": 2022,
+      "type": "divestment",
+      "title": "Exit Myanmar",
+      "effect": "Sold Ooredoo Myanmar in 2022; geography removed thereafter."
+    }
+  ],
+  "peers": [
+    "VFQS"
+  ],
+  "accounting_quirks": [
+    "Multi-currency geographic segments; FX translation is material",
+    "Watch net debt / EBITDA and EBITDA margin by country"
+  ]
+}

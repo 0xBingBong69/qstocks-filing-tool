@@ -1,0 +1,62 @@
+{
+  "ticker": "QATI",
+  "company_name": "Qatar Insurance Company (QIC)",
+  "names": [
+    {
+      "name": "Qatar Insurance Company (QIC)",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Conventional Insurance",
+  "archetype": "insurance",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_LOSS_RATIO",
+    "KPI_EXPENSE_RATIO",
+    "KPI_COMBINED",
+    "KPI_GWP",
+    "KPI_NET_PREMIUMS",
+    "KPI_ROE"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar / MENA",
+      "United Kingdom",
+      "Europe",
+      "Bermuda"
+    ],
+    "by_business": [
+      "Domestic / MENA insurance",
+      "International (Antares, Qatar Re)"
+    ]
+  },
+  "subsidiaries": [
+    {
+      "name": "Antares (Lloyd's)",
+      "country": "United Kingdom",
+      "currency": "GBP"
+    },
+    {
+      "name": "QIC Europe",
+      "country": "Europe",
+      "currency": "EUR"
+    }
+  ],
+  "events": [],
+  "peers": [
+    "DOHI",
+    "QGRI"
+  ],
+  "accounting_quirks": [
+    "Large international book; multi-currency; watch combined ratio",
+    "IFRS 17 insurance contracts from 2023"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "ticker": "KCBK",
+  "company_name": "Al Khalij Commercial Bank (al khaliji)",
+  "names": [
+    {
+      "name": "Al Khalij Commercial Bank (al khaliji)",
+      "from": null,
+      "to": 2021
+    }
+  ],
+  "sub_sector": "Commercial Bank",
+  "archetype": "conventional_bank",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_CAR",
+    "KPI_NPL",
+    "KPI_COVERAGE",
+    "KPI_COST_INCOME",
+    "KPI_NIM",
+    "KPI_LDR",
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [
+    {
+      "year": 2014,
+      "type": "regulation",
+      "title": "Basel III (QCB)",
+      "effect": "Capital adequacy reported under Basel III; CET1/AT1/Tier-2 split; AT1 instruments (often sukuk) shown in equity."
+    },
+    {
+      "year": 2018,
+      "type": "accounting",
+      "title": "IFRS 9 (expected credit losses)",
+      "effect": "Loan-loss provisioning moves to forward-looking ECL with Stage 1/2/3; watch ECL coverage and staging migration."
+    },
+    {
+      "year": 2021,
+      "type": "merger",
+      "title": "Merged into Masraf Al Rayan (MARK)",
+      "effect": "al khaliji merged into Masraf Al Rayan in 2021 and was delisted."
+    }
+  ],
+  "peers": [
+    "MARK",
+    "QNBK",
+    "CBQK"
+  ],
+  "accounting_quirks": []
+}

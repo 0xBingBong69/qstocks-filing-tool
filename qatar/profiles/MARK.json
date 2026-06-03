@@ -1,0 +1,67 @@
+{
+  "ticker": "MARK",
+  "company_name": "Masraf Al Rayan",
+  "names": [
+    {
+      "name": "Masraf Al Rayan",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Islamic Bank",
+  "archetype": "islamic_bank",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS as adopted by QCB (Islamic)",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_CAR",
+    "KPI_NPL",
+    "KPI_COVERAGE",
+    "KPI_COST_INCOME",
+    "KPI_LDR",
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Corporate",
+      "Retail",
+      "Treasury / Sukuk"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [
+    {
+      "year": 2014,
+      "type": "regulation",
+      "title": "Basel III (QCB)",
+      "effect": "Capital adequacy reported under Basel III; CET1/AT1/Tier-2 split; AT1 instruments (often sukuk) shown in equity."
+    },
+    {
+      "year": 2018,
+      "type": "accounting",
+      "title": "IFRS 9 (expected credit losses)",
+      "effect": "Loan-loss provisioning moves to forward-looking ECL with Stage 1/2/3; watch ECL coverage and staging migration."
+    },
+    {
+      "year": 2021,
+      "type": "merger",
+      "title": "Merger with Al Khalij Commercial Bank (al khaliji)",
+      "effect": "Absorbed al khaliji (KCBK); balance sheet roughly doubled from 2021."
+    }
+  ],
+  "peers": [
+    "QIBK",
+    "QIIK",
+    "DUBK"
+  ],
+  "accounting_quirks": []
+}

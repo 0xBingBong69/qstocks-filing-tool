@@ -1,0 +1,33 @@
+{
+  "ticker": "QCFS",
+  "company_name": "Qatar Cinema & Film Distribution",
+  "names": [
+    {
+      "name": "Qatar Cinema & Film Distribution",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Media & Entertainment",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

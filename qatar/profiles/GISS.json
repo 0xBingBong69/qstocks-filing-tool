@@ -1,0 +1,43 @@
+{
+  "ticker": "GISS",
+  "company_name": "Gulf International Services",
+  "names": [
+    {
+      "name": "Gulf International Services",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Oil & Gas Services",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar",
+      "International"
+    ],
+    "by_business": [
+      "Drilling",
+      "Aviation (Gulf Helicopters)",
+      "Insurance (Al Koot)",
+      "Catering"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": [
+    "Conglomerate of oilfield-services segments"
+  ]
+}

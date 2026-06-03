@@ -1,0 +1,35 @@
+{
+  "ticker": "MRDS",
+  "company_name": "Mazaya Qatar Real Estate Development",
+  "names": [
+    {
+      "name": "Mazaya Qatar Real Estate Development",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Property Development",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [
+    "BRES"
+  ],
+  "accounting_quirks": []
+}

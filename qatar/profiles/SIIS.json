@@ -1,0 +1,33 @@
+{
+  "ticker": "SIIS",
+  "company_name": "Salam International Investment",
+  "names": [
+    {
+      "name": "Salam International Investment",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Trading & Distribution",
+  "archetype": "industrial",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [],
+    "by_business": []
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

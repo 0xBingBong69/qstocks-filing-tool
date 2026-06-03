@@ -3,59 +3,148 @@
 Turn a PDF financial report into a QSE-format filing JSON — lossless, auditable, and ready to upload.
 Two modes: **local browser app** (drag-and-drop) or **one-command CLI**.
 
-## Install (once, or to update)
+## Install
+
+**Option 1 — installer script** (clones to `~/.qscreen-filing-tool`, installs deps, self-tests):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/0xBingBong69/qscreen-filing-tool/main/install.sh | bash
 ```
 
-This clones the tool to `~/.qscreen-filing-tool`, installs Python dependencies,
-and runs a self-test. Re-run anytime to update.
+Re-run anytime to update.
+
+**Option 2 — pip** (installs the `qscreen-ingest` and `qscreen-app` commands):
+
+```bash
+pip install -e .                 # core
+pip install -e ".[xlsx,ocr]"     # + Excel export and OCR for scanned PDFs
+```
 
 ## Configure (once)
 
-Create `~/.qscreen-filing-tool/.env`:
+Create a `.env` next to the tool (it is gitignored). **Set the key for whichever
+LLM provider you use** — the tool auto-detects it:
 
 ```
-OPENROUTER_API_KEY=sk-or-...
-INGEST_TOKEN=...                   # qscreen.app ingest token (required to upload)
-QSCREEN_API_URL=https://qscreen.app
+MINIMAX_API_KEY=...                 # or OPENROUTER_API_KEY / OPENAI_API_KEY /
+                                    # ANTHROPIC_API_KEY / MOONSHOT_API_KEY (kimi)
+INGEST_TOKEN=...                    # qscreen.app ingest token (only needed to upload)
+QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
 ```
+
+### Choosing a provider / model
+
+| Provider | `--provider` | API key env | **Get a key (click)** | Default model |
+|----------|--------------|-------------|-----------------------|---------------|
+| **MiniMax** | `minimax` | `MINIMAX_API_KEY` | [platform.minimax.io](https://platform.minimax.io/) | `MiniMax-M2` |
+| OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) | `minimax/minimax-01` |
+| Kimi (Moonshot) | `kimi` | `MOONSHOT_API_KEY` | [platform.moonshot.ai](https://platform.moonshot.ai/console/api-keys) | `kimi-k2-0905-preview` |
+| OpenAI | `openai` | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) | `gpt-4o` |
+| Claude (Anthropic) | `anthropic` / `claude` | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/settings/keys) | `claude-sonnet-4-5` |
+| Any OpenAI-compatible URL | `custom` | `LLM_API_KEY` | — | *(pass `--model` + `--base-url`)* |
+
+> Get an API key from the **Get a key** link, then paste it into `.env` as the
+> matching `*_API_KEY`. That's the whole setup.
+
+- **Auto-detect:** leave `--provider` off and the tool uses whichever key is set.
+- **Force a provider:** `--provider minimax` (or env `QSCREEN_PROVIDER=minimax`).
+- **Pick a model:** `--model <id>` (or env `QSCREEN_MODEL`). Defaults are overridable —
+  if a model id is rejected, the error tells you to pass `--model`.
+- `python3 qscreen_ingest.py --list-providers` prints this table.
+
+> **Note on Claude Code on the web:** the managed environment's network policy
+> may block LLM providers (e.g. `openrouter.ai`, `api.anthropic.com`). The
+> extractor needs to reach the provider, so run it where that host is allowed,
+> or permit it in the environment's network policy.
 
 ## Option A — local browser app
 
 ```bash
-python3 ~/.qscreen-filing-tool/qscreen_app.py
+python3 qscreen_app.py            # or: qscreen-app
 ```
 
 Open **http://127.0.0.1:8765**, drag in a PDF, fill Symbol / Sector / Year /
-Period, click **Extract**. When it finishes, click **Download** to get the
-`SYMBOL_YEAR_PERIOD_filing.json` report, then upload that file to qscreen.app.
-Nothing is auto-uploaded — you stay in control. (Reads the OpenRouter key from
-`.env`, same as the CLI.)
+Period (type a known symbol and the sub-sector auto-fills), click **Extract**.
+When it finishes, click **Download** to get the `SYMBOL_YEAR_PERIOD_filing.json`.
+Nothing is auto-uploaded — you stay in control. An **Upload to qscreen.app**
+button appears only when the server has `INGEST_TOKEN` set, and only uploads
+when you click it. An *Advanced* panel lets you pick a different provider/model.
 
 ## Option B — CLI (per PDF)
 
 ```bash
-python3 ~/.qscreen-filing-tool/qscreen_ingest.py <PDF_PATH> \
+python3 qscreen_ingest.py <PDF_PATH> \
   --symbol QIBK --sector islamic_bank --year 2024 --period FY
 ```
 
 - `--sector`: `conventional_bank | islamic_bank | industrial | insurance | other`
 - `--period`: `FY | Q1 | Q2 | Q3 | Q4 | H1 | 9M` (default `FY`)
-- add `--dry-run` to produce the JSON **without** uploading (inspect first)
+- `--provider` / `--model` — choose the LLM (see the table above; default auto-detect)
+- `--dry-run` — produce the JSON **without** uploading (inspect first)
+- `--export csv` / `--export xlsx` — also write a flattened line-items table (repeatable)
+- `--ocr auto|never|always` — OCR scanned pages (`auto` only does near-empty pages; needs the `ocr` extra + system `tesseract`/`poppler`)
+- `--version` — print the tool version
 
 The tool extracts (chunked page windows + table recovery), normalizes the
 fields to the contract, validates, saves `SYMBOL_YEAR_PERIOD_filing.json`, and
 uploads to qscreen.app. A non-conforming extract is saved but **not** uploaded.
 
+### Batch mode
+
+Process many filings from a CSV manifest (`pdf,symbol,sector,year[,period]`):
+
+```bash
+python3 qscreen_ingest.py --manifest filings.csv --export csv
+```
+
+```csv
+pdf,symbol,sector,year,period
+reports/QIBK_2024.pdf,QIBK,islamic_bank,2024,FY
+reports/QNBK_2023.pdf,QNBK,conventional_bank,2023,FY
+```
+
+One bad filing is reported and the batch continues; a summary prints at the end.
+
+## Qatar intelligence (per-stock, time-aware)
+
+The tool ships with a Qatar knowledge base (`qatar/`) covering all **55 QSE
+tickers**. Each profile is *time-aware* — it knows each company's name changes,
+foreign subsidiaries and their currencies, expected business/geography segments,
+and a dated event timeline (acquisitions, Basel III, IFRS 9, IAS 29
+hyperinflation, etc.). When you extract a filing for a known symbol + year, the
+engine automatically injects a **"Qatar analyst context"** into the prompt so it
+knows what to look for in *that* company and *that* year (e.g. QNB has Egypt from
+2013 and Turkey from 2016; Masraf Al Rayan absorbed al khaliji in 2021).
+
+Extraction now also captures the **prior-year comparative** column every filing
+prints, so a single PDF yields two years of structured data.
+
+Stack several filings into one per-symbol, multi-year series (the input for
+analysis/valuation):
+
+```bash
+python3 qscreen_series.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_filing.json
+# → QNBK_series.json  (years, per-metric values, and any restatements flagged)
+```
+
+### Segment breakdown (by business line, geography & currency)
+
+Extraction now also captures a typed `segments[]` section, and the analyzer
+(`qscreen_analyze.analyze_segments`) turns it into a per-dimension breakdown with
+year-on-year growth, share-of-total, **FX-exposure flags**, and **event
+annotations** from the profile — e.g. QNB's Turkey segment is flagged as TRY with
+"2016: Finansbank acquisition" and "2022: IAS 29 hyperinflation". The browser app
+renders this automatically after an extract, and there's a `POST /segments` route
+to re-analyze any filing JSON.
+
 ## Testing
 
 ```bash
-python3 ~/.qscreen-filing-tool/qscreen_ingest.py --self-test
+python3 qscreen_ingest.py --self-test     # offline contract/normalize/merge check
+pytest -q                                 # full suite (pip install -e ".[dev]")
 ```
 
-Must print `✅ self-test passed`. If not, re-run the installer.
+The self-test must print `✅ self-test passed`. CI runs both on Python 3.9–3.12.
 
 ## License
 

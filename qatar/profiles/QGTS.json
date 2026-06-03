@@ -1,0 +1,42 @@
+{
+  "ticker": "QGTS",
+  "company_name": "Qatar Gas Transport Company (Nakilat)",
+  "names": [
+    {
+      "name": "Qatar Gas Transport Company (Nakilat)",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "LNG Shipping",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "International (global LNG fleet)"
+    ],
+    "by_business": [
+      "LNG shipping",
+      "LPG / product shipping",
+      "Vessel JVs"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": [
+    "USD-linked charter revenue; many vessel-owning JVs",
+    "Hedging of interest-rate/FX on long-term charters"
+  ]
+}
