@@ -84,3 +84,16 @@ def test_backcompat_maps_for_app():
     assert set(qatar.SUBSECTOR_TO_EXTRACTION.values()) <= ARCHETYPES
     for sym, sub in qatar.SYMBOL_SUBSECTOR.items():
         assert sub in qatar.SUBSECTOR_TO_EXTRACTION
+
+
+def test_all_55_have_expected_segments():
+    """Every ticker carries expected business segments so extraction is company-aware."""
+    for t in qatar.all_tickers():
+        biz = qatar.load_profile(t)["segments_expected"].get("by_business")
+        assert biz, f"{t} has no expected business segments"
+
+
+def test_meeza_ipo_event_and_spot_segments():
+    assert any(e["type"] == "ipo" and e["year"] == 2023 for e in qatar.load_profile("MEZA")["events"])
+    assert "Flour & feed milling" in qatar.load_profile("ZHCD")["segments_expected"]["by_business"]
+    assert qatar.load_profile("QIIK")["peers"] == ["QIBK", "MARK", "DUBK"]   # preserved by update

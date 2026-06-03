@@ -27,13 +27,22 @@
     "KPI_ROE"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar",
+      "MENA"
+    ],
+    "by_business": [
+      "General insurance",
+      "Medical",
+      "Life / Takaful"
+    ]
   },
   "subsidiaries": [],
   "events": [],
   "peers": [
     "QATI"
   ],
-  "accounting_quirks": []
+  "accounting_quirks": [
+    "IFRS 17 insurance contracts from 2023"
+  ]
 }

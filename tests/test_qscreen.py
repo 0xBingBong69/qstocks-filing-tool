@@ -653,6 +653,32 @@ def test_system_prompt_without_profile_is_clean():
     assert "pre-loaded knowledge about THIS specific company" not in sp
 
 
+# ── "both outputs": analysis artifacts + upload fold ─────────────────────────
+
+def test_build_analysis_artifacts():
+    from types import SimpleNamespace
+    art = e.build_analysis_artifacts(good_filing(), SimpleNamespace(symbol="QNBK", _profile=None))
+    assert "analysis" in art and "valuation" in art
+    assert "ratios" in art["analysis"]
+
+
+def test_upload_filing_folds_analysis_additively(monkeypatch):
+    from types import SimpleNamespace
+
+    class _Resp:
+        def raise_for_status(self): pass
+        def json(self): return {"ok": 1}
+    cap = {}
+    monkeypatch.setattr("requests.post",
+                        lambda url, headers, json, timeout: cap.update(body=json) or _Resp())
+    f = good_filing()
+    args = SimpleNamespace(api_url="http://x", token="t")
+    e.upload_filing(f, args, {"a": 1})
+    assert cap["body"].get("analysis") == {"a": 1} and "metadata" in cap["body"]   # additive
+    e.upload_filing(f, args)                       # default: plain filing, no analysis key
+    assert "analysis" not in cap["body"]
+
+
 # ── self-test entrypoint still green ─────────────────────────────────────────
 
 def test_self_test_passes():

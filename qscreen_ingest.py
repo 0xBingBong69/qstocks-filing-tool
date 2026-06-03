@@ -967,13 +967,36 @@ def merge_filings(parts: list[dict]) -> dict:
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 
-def upload_filing(filing: dict, args) -> dict:
+def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
     import requests
     url = f"{args.api_url.rstrip('/')}/api/v1/ingest/filing"
     headers = {"Authorization": f"Bearer {args.token}", "Content-Type": "application/json"}
-    resp = requests.post(url, headers=headers, json=filing, timeout=180)
+    # Additive: when asked, fold the derived analysis in as a sibling key. The
+    # filing contract itself is unchanged, so a backend that ignores unknown keys
+    # is unaffected.
+    payload = filing if analysis is None else {**filing, "analysis": analysis}
+    resp = requests.post(url, headers=headers, json=payload, timeout=180)
     resp.raise_for_status()
     return resp.json()
+
+
+def build_analysis_artifacts(filing: dict, args) -> dict:
+    """Derived analysis (+ valuation) for one filing — saved locally and/or folded
+    into the upload. Lazily imported so the core engine stays standalone."""
+    symbol = (filing.get("metadata") or {}).get("symbol") or getattr(args, "symbol", "")
+    profile = getattr(args, "_profile", None)
+    out: dict = {}
+    try:
+        import qscreen_analyze
+        out["analysis"] = qscreen_analyze.analyze(symbol, [filing], profile)
+    except Exception as e:                       # never let analysis break extraction
+        out["analysis_error"] = str(e)
+    try:
+        import qscreen_dcf
+        out["valuation"] = qscreen_dcf.value(symbol, [filing], profile)
+    except Exception as e:
+        out["valuation_error"] = str(e)
+    return out
 
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
@@ -1163,6 +1186,23 @@ def run_filing(args) -> int:
         n = export_csv(filing, out) if fmt == "csv" else export_xlsx(filing, out)
         print(f"📑 Exported {n} line item(s) → {out}")
 
+    # Both outputs: optionally also persist the derived analysis/valuation locally.
+    artifacts = None
+    if getattr(args, "analyze", False) or getattr(args, "with_analysis", False):
+        artifacts = build_analysis_artifacts(filing, args)
+    if getattr(args, "analyze", False) and artifacts:
+        base = f"{args.symbol.upper()}_{args.year}_{args.period}"
+        if artifacts.get("analysis"):
+            Path(f"{base}_analysis.json").write_text(
+                json.dumps(artifacts["analysis"], indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"🧮 Saved analysis → {base}_analysis.json "
+                  f"({len(artifacts['analysis'].get('red_flags', []))} red flag(s))")
+        if (artifacts.get("valuation") or {}).get("valuation"):
+            Path(f"{base}_valuation.json").write_text(
+                json.dumps(artifacts["valuation"], indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"💰 Saved valuation → {base}_valuation.json "
+                  f"({artifacts['valuation']['valuation']['model']})")
+
     if problems:
         print("❌ Not uploading — fix extraction problems above first.")
         return 2
@@ -1173,8 +1213,9 @@ def run_filing(args) -> int:
         print("📤 No INGEST_TOKEN set — saved only. Set INGEST_TOKEN to upload to qscreen.app.")
         return 0
 
-    print("📤 Uploading to qscreen.app …")
-    print(f"   ✅ {upload_filing(filing, args)}")
+    fold = (artifacts or {}).get("analysis") if getattr(args, "with_analysis", False) else None
+    print("📤 Uploading to qscreen.app …" + (" (with analysis)" if fold else ""))
+    print(f"   ✅ {upload_filing(filing, args, fold)}")
     return 0
 
 
@@ -1251,6 +1292,10 @@ def main() -> int:
                    help="Don't send response_format=json_object (some providers reject it)")
     p.add_argument("--export", choices=["csv", "xlsx"], action="append",
                    help="Also write a flattened line-items table (repeatable: --export csv --export xlsx)")
+    p.add_argument("--analyze", action="store_true",
+                   help="Also compute and save <symbol>_<year>_<period>_analysis.json + _valuation.json")
+    p.add_argument("--with-analysis", action="store_true",
+                   help="Fold the derived analysis into the qscreen.app upload payload (additive)")
     p.add_argument("--manifest", help="Batch mode: CSV with columns pdf,symbol,sector,year[,period]")
     p.add_argument("--llm-key", default=None,
                    help="API key (else read from the provider's env var, e.g. MINIMAX_API_KEY)")

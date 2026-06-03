@@ -27,11 +27,19 @@
     "KPI_ROE"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Insurance",
+      "Reinsurance",
+      "Real estate & investments"
+    ]
   },
   "subsidiaries": [],
   "events": [],
   "peers": [],
-  "accounting_quirks": []
+  "accounting_quirks": [
+    "IFRS 17 insurance contracts from 2023"
+  ]
 }

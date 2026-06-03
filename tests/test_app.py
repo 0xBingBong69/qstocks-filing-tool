@@ -132,6 +132,46 @@ def test_dcf_route_missing(client):
     assert client.post("/dcf", json={}).status_code == 400
 
 
+def _bank_filing(sym, ni, eq):
+    li = [{"account_code": c, "label_verbatim": c, "value": v,
+           "comparatives": [{"period_label": "2022", "value": v}]}
+          for c, v in [("IS_NET_INCOME", ni), ("BS_TOTAL_EQUITY", eq)]]
+    return {"metadata": {"symbol": sym, "fiscal_year": 2023, "fiscal_period": "FY", "currency": "QAR"},
+            "statements": [{"type": "income_statement", "verbatim_text": "x", "line_items": li}]}
+
+
+def test_compare_route(client):
+    r = client.post("/compare", json={"filings": [_bank_filing("QNBK", 15000, 100000),
+                                                  _bank_filing("CBQK", 2500, 30000)]})
+    assert r.status_code == 200
+    j = r.get_json()
+    assert j["target"] == "QNBK" and j["rows"][0]["symbol"] == "QNBK"
+    assert j["rows"][0]["ranks"]["roe"] == 1
+
+
+def test_compare_route_missing(client):
+    assert client.post("/compare", json={}).status_code == 400
+
+
+def test_upload_route_folds_analysis(client, monkeypatch):
+    monkeypatch.setenv("INGEST_TOKEN", "tok")
+    captured = {}
+    monkeypatch.setattr(app_mod.engine, "upload_filing",
+                        lambda filing, args, analysis=None: captured.update(analysis=analysis) or {"ok": 1})
+    f = app_mod.engine.empty_filing()
+    f["metadata"].update({"symbol": "QNBK", "sector": "conventional_bank",
+                          "fiscal_year": 2023, "fiscal_period": "FY"})
+    f["audit"].update({"opinion_type": "unqualified", "verbatim_text": "In our opinion …"})
+    f["statements"].append({"type": "income_statement", "title": "IS", "period_label": "2023",
+                            "verbatim_text": "NII 1",
+                            "line_items": [{"account_code": "IS_NET_INTEREST", "label_verbatim": "NII",
+                                            "value": 1}]})
+    f["notes"].append({"number": "1", "title": "x", "category": "other",
+                       "structured": {}, "verbatim_text": "…"})
+    r = client.post("/upload", json={"filing": f, "analysis": {"x": 1}, "with_analysis": True})
+    assert r.status_code == 200 and captured["analysis"] == {"x": 1}
+
+
 def test_subsector_taxonomy_maps_to_valid_categories():
     # Every sub-sector the UI offers must map to one of the engine's 5 sectors.
     for sub, cat in app_mod.SUBSECTOR_TO_EXTRACTION.items():

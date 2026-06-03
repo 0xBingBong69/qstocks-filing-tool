@@ -29,8 +29,15 @@
     "KPI_ROA"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar",
+      "UAE"
+    ],
+    "by_business": [
+      "Wholesale",
+      "Retail",
+      "Treasury"
+    ]
   },
   "subsidiaries": [],
   "events": [

@@ -94,6 +94,13 @@ PAGE = """<!doctype html>
   .dcf input { width: 78px; padding: 5px; font-size: 13px; }
   .dcf button { margin: 8px 0; padding: 8px 14px; font-size: 14px; }
   .dcfval { font-size: 18px; font-weight: 700; } .grid td.base { background: #fff3cd; font-weight: 700; }
+  details.cmp { margin-top: 22px; border-top: 1px solid #eee; padding-top: 12px; } details.cmp summary { cursor: pointer; font-weight: 600; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.cmp th, table.cmp td { border-bottom: 1px solid #eee; padding: 5px 8px; text-align: right; }
+  table.cmp th:first-child, table.cmp td:first-child { text-align: left; }
+  table.cmp tr.target { background: #eef6ff; font-weight: 600; } table.cmp .r1 { color: #0a7; font-weight: 700; }
+  table.cmp sup { color: #999; font-weight: 400; }
+  label.inc { font-size: 12px; color: #555; margin-left: 10px; } label.inc input { vertical-align: middle; }
 </style></head><body>
 <h1>QScreen Filing Ingestor</h1>
 <p class="sub">Drop a QSE financial-report PDF, fill the fields, click Extract. Then download the report and upload it to qscreen.app. Type a known symbol and the sub-sector auto-fills.</p>
@@ -138,6 +145,14 @@ PAGE = """<!doctype html>
   <button type="submit" id="go">Extract</button>
 </form>
 <div id="out"></div>
+
+<details class="cmp"><summary>Compare extracted filings against peers</summary>
+  <p class="muted">Select two or more already-extracted <code>*_filing.json</code> files (a stock and its peers).
+  They're ranked on the first file's company type.</p>
+  <input type="file" id="cmpfiles" accept="application/json,.json" multiple>
+  <button id="cmpgo" type="button">Compare</button>
+  <div id="cmpout"></div>
+</details>
 <script>
 const SYMBOL_SUBSECTOR = __SYMBOL_MAP_JSON__;
 const UPLOAD_ENABLED = __UPLOAD_ENABLED__;
@@ -179,6 +194,37 @@ function renderSegments(sa){
     h += '</table>';
   }
   return h + '</div>';
+}
+function fmtCmp(name, v){
+  if(v==null) return '—';
+  const pctSet = ['roe','roa','nim','cost_income','npl','car','ldr','net_margin','operating_margin','loss_ratio','combined_ratio'];
+  if(name==='liabilities_to_equity') return Number(v).toFixed(2)+'×';
+  if(pctSet.indexOf(name)>=0){ const p=(Math.abs(v)<=1.5)?v*100:v; return p.toFixed(1)+'%'; }
+  return Number(v).toLocaleString();
+}
+function renderCompare(d){
+  if(!d || !d.rows || !d.rows.length) return '<span class="warn">'+((d&&d.error)||'nothing to compare')+'</span>';
+  const metrics = d.metrics.map(m=>m.name);
+  let h = '<table class="cmp"><tr><th>Company</th>';
+  for(const m of metrics) h += '<th>'+m.replace(/_/g,' ')+'</th>';
+  h += '</tr>';
+  for(const r of d.rows){
+    h += '<tr class="'+(r.is_target?'target':'')+'"><td title="'+r.symbol+'">'+r.symbol+(r.is_target?' ★':'')+'</td>';
+    for(const m of metrics){ const rk=r.ranks[m];
+      h += '<td class="'+(rk===1?'r1':'')+'">'+fmtCmp(m, r.ratios[m])+(rk?'<sup>#'+rk+'</sup>':'')+'</td>'; }
+    h += '</tr>';
+  }
+  return h + '</table><p class="muted">★ = target · #n = rank among peers · green = best</p>';
+}
+async function runCompare(){
+  const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
+  if(!inp.files || inp.files.length < 2){ out.innerHTML='<span class="warn">Pick at least two filing JSON files.</span>'; return; }
+  out.textContent = 'Comparing…';
+  try {
+    const filings = await Promise.all([...inp.files].map(f => f.text().then(t => JSON.parse(t))));
+    const r = await fetch('/compare', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filings})});
+    out.innerHTML = renderCompare(await r.json());
+  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
 }
 function renderDcfPanel(){
   return '<div class="seg dcf"><h3>Valuation (DCF) — adjustable</h3>'
@@ -259,7 +305,7 @@ symbolEl.addEventListener('input', () => {
     hintEl.textContent = sym ? (sym + ' not in the known list — pick the sub-sector manually') : '';
   }
 });
-let lastBlob = null, lastName = 'filing.json', lastFiling = null, lastSymbol = '';
+let lastBlob = null, lastName = 'filing.json', lastFiling = null, lastSymbol = '', lastAnalysis = null;
 f.onsubmit = async (e) => {
   e.preventDefault();
   go.disabled = true; go.textContent = 'Extracting… (this can take a few minutes)';
@@ -274,9 +320,11 @@ f.onsubmit = async (e) => {
       lastBlob = new Blob([JSON.stringify(data.filing, null, 2)], {type:'application/json'});
       lastName = data.filename; lastFiling = data.filing;
       lastSymbol = (data.filing && data.filing.metadata && data.filing.metadata.symbol) || '';
+      lastAnalysis = data.analysis || null;
       html += '\\n\\n<a class="dl" id="dl" href="#">⬇ Download ' + data.filename + '</a>';
       if (UPLOAD_ENABLED && !data.problems.length)
-        html += '<a class="dl up" id="up" href="#">⬆ Upload to qscreen.app</a>';
+        html += '<a class="dl up" id="up" href="#">⬆ Upload to qscreen.app</a>'
+             + '<label class="inc"><input type="checkbox" id="incan"> include analysis in upload</label>';
       html += renderSegments((data.analysis||{}).segments);
       html += renderAnalysis(data.analysis);
       html += renderDcfPanel();
@@ -295,8 +343,10 @@ f.onsubmit = async (e) => {
         up.classList.add('busy'); up.textContent = '⬆ Uploading…';
         const note = document.createElement('div');
         try {
+          const inc = document.getElementById('incan');
           const r = await fetch('/upload', { method: 'POST', headers: {'Content-Type':'application/json'},
-                                             body: JSON.stringify({ filing: lastFiling }) });
+                                             body: JSON.stringify({ filing: lastFiling,
+                                               with_analysis: !!(inc && inc.checked), analysis: lastAnalysis }) });
           const d = await r.json();
           if (r.ok) { up.textContent = '✅ Uploaded to qscreen.app'; }
           else {
@@ -315,6 +365,8 @@ f.onsubmit = async (e) => {
   } catch (err) { out.innerHTML = '<span class="err">Request failed: ' + err + '</span>'; }
   go.disabled = false; go.textContent = 'Extract';
 };
+const cmpBtn = document.getElementById('cmpgo');
+if (cmpBtn) cmpBtn.onclick = runCompare;
 </script>
 </body></html>"""
 
@@ -423,6 +475,25 @@ def analyze_route():
     return qscreen_analyze.analyze(symbol, filings, profile)
 
 
+@app.route("/compare", methods=["POST"])
+def compare_route():
+    """Rank a stock against peers. Body: {filings:[...]} (grouped by symbol) or
+    {filings_by_symbol:{SYM:[...]}}, optional {target}."""
+    payload = request.get_json(silent=True) or {}
+    fbs = payload.get("filings_by_symbol")
+    if fbs is None:
+        filings = payload.get("filings")
+        if not isinstance(filings, list) or not filings:
+            return {"error": "missing 'filings' (list) or 'filings_by_symbol' (object)"}, 400
+        fbs = qscreen_analyze.group_by_symbol(filings)
+    if not fbs:
+        return {"error": "no filings carry a metadata.symbol"}, 400
+    target = (payload.get("target") or next(iter(fbs))).upper()
+    profiles = {s: qatar.profile_for_year(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
+                for s, fs in fbs.items()}
+    return qscreen_analyze.compare(target, fbs, profiles)
+
+
 @app.route("/dcf", methods=["POST"])
 def dcf_route():
     """Run the valuation simulator for a filing/series with adjustable
@@ -476,8 +547,11 @@ def upload():
         return {"error": "filing is non-conforming; not uploading", "problems": problems}, 400
     args = SimpleNamespace(
         api_url=os.getenv("QSCREEN_API_URL", "http://localhost:3004"), token=token)
+    # Both outputs: optionally fold the derived analysis into the upload (additive).
+    analysis = payload.get("analysis") if payload.get("with_analysis") else None
     try:
-        resp = engine.upload_filing(filing, args)
+        resp = (engine.upload_filing(filing, args, analysis) if analysis is not None
+                else engine.upload_filing(filing, args))
         return {"ok": True, "response": resp}
     except Exception as e:
         return {"error": str(e)}, 502

@@ -27,8 +27,14 @@
     "KPI_ROE"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "General takaful",
+      "Family takaful",
+      "Medical"
+    ]
   },
   "subsidiaries": [],
   "events": [],

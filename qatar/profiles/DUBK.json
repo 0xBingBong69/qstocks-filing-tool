@@ -33,8 +33,15 @@
     "KPI_ROA"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Corporate",
+      "Retail",
+      "Private banking",
+      "Treasury / Sukuk"
+    ]
   },
   "subsidiaries": [],
   "events": [

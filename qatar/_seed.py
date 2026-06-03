@@ -220,6 +220,8 @@ ENRICH: dict[str, dict] = {
         "peers": ["QIBK", "QIIK", "DUBK"],
     },
     "DUBK": {
+        "segments_expected": {"by_geography": ["Qatar"],
+                              "by_business": ["Corporate", "Retail", "Private banking", "Treasury / Sukuk"]},
         "names": [{"name": "Barwa Bank", "from": None, "to": 2020},
                   {"name": "Dukhan Bank", "from": 2020, "to": None}],
         "events": [
@@ -229,6 +231,9 @@ ENRICH: dict[str, dict] = {
         "peers": ["QIBK", "QIIK", "MARK"],
     },
     "QFBQ": {
+        "segments_expected": {"by_geography": ["Qatar", "International"],
+                              "by_business": ["Principal investments", "Investment banking",
+                                              "Asset management"]},
         "names": [{"name": "Qatar First Bank", "from": None, "to": 2022},
                   {"name": "Lesha Bank", "from": 2022, "to": None}],
         "events": [
@@ -237,10 +242,13 @@ ENRICH: dict[str, dict] = {
         ],
     },
     "IHGS": {
+        "segments_expected": {"by_geography": ["Qatar"], "by_business": ["Investments"]},
         "names": [{"name": "Islamic Holding Group", "from": None, "to": 2022},
                   {"name": "Inma Holding", "from": 2022, "to": None}],
     },
     "KCBK": {
+        "segments_expected": {"by_geography": ["Qatar", "UAE"],
+                              "by_business": ["Wholesale", "Retail", "Treasury"]},
         "names": [{"name": "Al Khalij Commercial Bank (al khaliji)", "from": None, "to": 2021}],
         "events": [
             {"year": 2021, "type": "merger", "title": "Merged into Masraf Al Rayan (MARK)",
@@ -335,3 +343,92 @@ ENRICH: dict[str, dict] = {
                                    "by_business": ["Industrial Manufacturing", "Trading & Distribution",
                                                    "Property", "Managed Services"]}},
 }
+
+# Expected segments (and a few high-confidence events) for the remaining tickers,
+# so every one of the 55 is company-aware. Geography defaults to Qatar unless the
+# company is known to operate abroad. segments_expected is *guidance* for the
+# extractor ("capture what the filing actually shows"), so it is safe to populate
+# broadly; events are only added where the fact and year are well established.
+ENRICH.update({
+    # ── Banks (segments) ─────────────────────────────────────────────────────
+    "ABQK": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Wholesale", "Retail", "Treasury & Investments"]},
+             "peers": ["QNBK", "CBQK", "DHBK"]},
+    "QIIK": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Corporate", "Retail", "Treasury / Sukuk"]},
+             "peers": ["QIBK", "MARK", "DUBK"]},
+    # ── Other financials ─────────────────────────────────────────────────────
+    "DBIS": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Brokerage", "Investment"]}},
+    "QOIS": {"segments_expected": {"by_geography": ["Qatar", "Oman"],
+                                   "by_business": ["Investments", "Brokerage"]}},
+    "NLCS": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Consumer & corporate financing", "Investments"]}},
+    # ── Insurance ────────────────────────────────────────────────────────────
+    "DOHI": {"segments_expected": {"by_geography": ["Qatar", "MENA"],
+                                   "by_business": ["General insurance", "Medical", "Life / Takaful"]},
+             "accounting_quirks": ["IFRS 17 insurance contracts from 2023"]},
+    "QGRI": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Insurance", "Reinsurance", "Real estate & investments"]},
+             "accounting_quirks": ["IFRS 17 insurance contracts from 2023"]},
+    "QLMI": {"segments_expected": {"by_geography": ["Qatar", "GCC"],
+                                   "by_business": ["Medical / health", "Life"]},
+             "accounting_quirks": ["IFRS 17 insurance contracts from 2023"]},
+    "AKHI": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["General takaful", "Medical", "Real estate & investments"]}},
+    "QISI": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["General takaful", "Family takaful", "Medical"]}},
+    "BEMA": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["General takaful", "Medical takaful"]}},
+    # ── Real estate ──────────────────────────────────────────────────────────
+    "BRES": {"segments_expected": {"by_geography": ["Qatar", "International"],
+                                   "by_business": ["Real estate development & leasing", "Infrastructure"]}},
+    "ERES": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Residential leasing", "Hospitality", "Retail malls"]}},
+    "MRDS": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Real estate development", "Property management"]}},
+    # ── Industrials ──────────────────────────────────────────────────────────
+    "QNCD": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Cement", "Clinker", "Gypsum & lime"]}},
+    "QIMD": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Petrochemical & industrial investments", "Manufacturing"]}},
+    "QIGD": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Cement (Al Khalij Cement)", "Industrial investments"]}},
+    "IGRD": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Services", "Contracting", "Industrial"]}},
+    "MKDM": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["ICT & security systems", "Telecom", "Manpower & services"]}},
+    "MHAR": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Industrial & oilfield supplies", "Services"]}},
+    "SIIS": {"segments_expected": {"by_geography": ["Qatar", "International"],
+                                   "by_business": ["Technology", "Luxury & lifestyle",
+                                                   "Industrial & contracting", "Energy"]}},
+    # ── Consumer ─────────────────────────────────────────────────────────────
+    "ZHCD": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Flour & feed milling", "Consumer products"]}},
+    "WDAM": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Livestock trading", "Fresh & frozen meat"]}},
+    "MCCS": {"segments_expected": {"by_geography": ["Qatar", "International"],
+                                   "by_business": ["Trade (automotive & retail)", "Information technology",
+                                                   "Energy & industrial"]}},
+    "QGMD": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Medical devices manufacturing"]}},
+    "MCGS": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Hospital & healthcare services"]}},
+    "FALH": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Schools", "Higher education"]}},
+    "QCFS": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Cinema operations", "Film distribution"]}},
+    # ── Telecom, tech & transport ────────────────────────────────────────────
+    "MEZA": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Managed IT services", "Data centres",
+                                                   "Cloud & cybersecurity"]},
+             "events": [{"year": 2023, "type": "ipo", "title": "IPO / QSE listing",
+                         "effect": "MEEZA listed on the Qatar Stock Exchange in 2023."}]},
+    "TQES": {"segments_expected": {"by_geography": ["Qatar", "International"],
+                                   "by_business": ["Healthcare", "Services", "Contracting",
+                                                   "Ventures (hospitality)"]}},
+    "GWCS": {"segments_expected": {"by_geography": ["Qatar"],
+                                   "by_business": ["Logistics & warehousing", "Freight forwarding",
+                                                   "Records management"]}},
+})

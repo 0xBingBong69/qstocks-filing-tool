@@ -23,8 +23,13 @@
     "KPI_ROA"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Schools",
+      "Higher education"
+    ]
   },
   "subsidiaries": [],
   "events": [],

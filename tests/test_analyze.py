@@ -163,3 +163,36 @@ def test_analyst_narrative_error_is_captured(monkeypatch):
     monkeypatch.setattr(qscreen_ingest, "call_llm", boom)
     out = an.analyze("QNBK", [_filing(2023, [("IS_NET_INCOME", 1, 1)])], None, narrative=True)
     assert "no API key" in out["narrative_error"]
+
+
+# ── peer comparison ──────────────────────────────────────────────────────────
+
+def _bank(sym, ni, eq, ci=None):
+    items = [("IS_NET_INCOME", ni, ni), ("BS_TOTAL_EQUITY", eq, eq)]
+    if ci is not None:
+        items.append(("KPI_COST_INCOME", ci, ci))
+    li = [{"account_code": c, "label_verbatim": c, "value": v,
+           "comparatives": [{"period_label": "2022", "value": pv}]} for c, v, pv in items]
+    return {"metadata": {"symbol": sym, "fiscal_year": 2023, "fiscal_period": "FY", "currency": "QAR"},
+            "statements": [{"type": "income_statement", "verbatim_text": "x", "line_items": li}]}
+
+
+def test_group_by_symbol():
+    g = an.group_by_symbol([_bank("QNBK", 1, 1), _bank("QNBK", 2, 2), _bank("CBQK", 1, 1)])
+    assert set(g) == {"QNBK", "CBQK"} and len(g["QNBK"]) == 2
+
+
+def test_compare_ranks_and_puts_target_first():
+    import qatar
+    groups = {"QNBK": [_bank("QNBK", 15000, 100000, 22.0)],   # ROE 15%, best cost/income
+              "CBQK": [_bank("CBQK", 2500, 30000, 30.0)],
+              "DHBK": [_bank("DHBK", 1200, 20000, 40.0)]}      # worst on both
+    profs = {s: qatar.profile_for_year(s, 2023) for s in groups}
+    out = an.compare("QNBK", groups, profs)
+    assert out["archetype"] == "conventional_bank"
+    assert out["rows"][0]["symbol"] == "QNBK" and out["rows"][0]["is_target"]
+    qnb = out["rows"][0]
+    assert qnb["ranks"]["roe"] == 1                 # highest ROE
+    assert qnb["ranks"]["cost_income"] == 1         # lowest cost/income wins (low-is-better)
+    dhb = next(r for r in out["rows"] if r["symbol"] == "DHBK")
+    assert dhb["ranks"]["roe"] == 3

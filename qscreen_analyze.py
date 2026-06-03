@@ -415,15 +415,93 @@ def analyze(symbol: str, filings: list[dict], profile: dict | None = None, *,
     return out
 
 
+# ── peer comparison ──────────────────────────────────────────────────────────
+
+# Ratios that matter per archetype, with the "good" direction for ranking.
+_COMPARE_RATIOS = {
+    "conventional_bank": [("roe", "high"), ("roa", "high"), ("nim", "high"),
+                          ("cost_income", "low"), ("npl", "low"), ("car", "high"), ("ldr", None)],
+    "islamic_bank": [("roe", "high"), ("roa", "high"), ("cost_income", "low"),
+                     ("npl", "low"), ("car", "high"), ("ldr", None)],
+    "insurance": [("roe", "high"), ("loss_ratio", "low"), ("combined_ratio", "low")],
+    "industrial": [("net_margin", "high"), ("operating_margin", "high"), ("roe", "high"),
+                   ("roa", "high"), ("liabilities_to_equity", "low")],
+    "other": [("net_margin", "high"), ("operating_margin", "high"), ("roe", "high"),
+              ("roa", "high"), ("liabilities_to_equity", "low")],
+}
+_KPI_RATIOS = {"npl", "car", "cost_income", "loss_ratio", "combined_ratio", "ldr", "expense_ratio"}
+
+
+def compare(target: str, filings_by_symbol: dict, profiles_by_symbol: dict | None = None) -> dict:
+    """Rank a stock against its peers on the ratios that matter for its type.
+    `filings_by_symbol` is {SYMBOL: [filing dicts]} for the target and each peer;
+    all are scored on the TARGET's archetype so the comparison is apples-to-apples."""
+    profiles_by_symbol = profiles_by_symbol or {}
+    target = target.upper()
+    archetype = (profiles_by_symbol.get(target) or {}).get("archetype") or "other"
+    specs = _COMPARE_RATIOS.get(archetype, _COMPARE_RATIOS["other"])
+    names = [n for n, _ in specs]
+
+    rows = []
+    for sym, filings in filings_by_symbol.items():
+        series = build_series(sym, filings)
+        ratios = compute_ratios(series, archetype)
+        latest = sorted(ratios)[-1] if ratios else None
+        prof = profiles_by_symbol.get(sym) or {}
+        rows.append({
+            "symbol": sym.upper(),
+            "name": prof.get("name_as_of") or prof.get("company_name") or sym.upper(),
+            "year": latest,
+            "ratios": {n: (_val(ratios, latest, n) if latest else None) for n in names},
+            "is_target": sym.upper() == target,
+        })
+
+    ranks = {r["symbol"]: {} for r in rows}
+    for name, direction in specs:
+        if direction not in ("high", "low"):
+            continue
+        present = [(r["symbol"], _as_fraction(r["ratios"][name]) if name in _KPI_RATIOS else r["ratios"][name])
+                   for r in rows if r["ratios"].get(name) is not None]
+        for i, (sym, _) in enumerate(sorted(present, key=lambda x: x[1], reverse=(direction == "high")), 1):
+            ranks[sym][name] = i
+    for r in rows:
+        r["ranks"] = ranks[r["symbol"]]
+    rows.sort(key=lambda r: (not r["is_target"], r["symbol"]))   # target first, then alphabetical
+    return {"target": target, "archetype": archetype,
+            "metrics": [{"name": n, "direction": d} for n, d in specs], "rows": rows}
+
+
+def group_by_symbol(filings: list[dict]) -> dict:
+    groups: dict[str, list[dict]] = {}
+    for f in filings:
+        sym = (f.get("metadata") or {}).get("symbol")
+        if sym:
+            groups.setdefault(sym.upper(), []).append(f)
+    return groups
+
+
 def save_analysis(obj: dict, path: str) -> str:
     Path(path).write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
 
 
+def _resolve_profiles(year_by_symbol: dict) -> dict:
+    profs: dict = {}
+    try:
+        import qatar
+        for sym, yr in year_by_symbol.items():
+            profs[sym] = qatar.profile_for_year(sym, yr)
+    except Exception:
+        pass
+    return profs
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Analyse a QSE stock's filings (ratios, trends, red flags)")
-    p.add_argument("--symbol", required=True)
+    p.add_argument("--symbol", help="ticker (the target for --compare; required otherwise)")
     p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
+    p.add_argument("--compare", action="store_true",
+                   help="rank a stock against peers (pass each company's files; grouped by symbol)")
     p.add_argument("--narrative", action="store_true", help="add an LLM analyst narrative (needs an API key)")
     p.add_argument("--provider")
     p.add_argument("--model")
@@ -431,18 +509,36 @@ def main() -> int:
     args = p.parse_args()
 
     filings = [json.loads(Path(fp).read_text(encoding="utf-8")) for fp in args.filings]
-    profile = None
-    try:
-        import qatar
-        meta0 = filings[0].get("metadata") or {}
-        profile = qatar.profile_for_year(args.symbol, meta0.get("fiscal_year"))
-    except Exception:
-        pass
+
+    if args.compare:
+        groups = group_by_symbol(filings)
+        if not groups:
+            print("⚠️  no filings carry a metadata.symbol to compare")
+            return 1
+        years = {s: (fs[0].get("metadata") or {}).get("fiscal_year") for s, fs in groups.items()}
+        target = (args.symbol or next(iter(groups))).upper()
+        out = compare(target, groups, _resolve_profiles(years))
+        path = save_analysis(out, f"{target}_compare.json")
+        names = [m["name"] for m in out["metrics"]]
+        print(f"📊 {target} vs {len(out['rows']) - 1} peer(s) [{out['archetype']}] → {path}")
+        print("   " + "TICKER".ljust(7) + "".join(n[:9].rjust(11) for n in names))
+        for r in out["rows"]:
+            cells = []
+            for n in names:
+                v, rk = r["ratios"].get(n), r["ranks"].get(n)
+                cells.append((f"{v:.3g}" + (f"#{rk}" if rk else "")) if v is not None else "—")
+            star = "★ " if r["is_target"] else "  "
+            print(star + r["symbol"].ljust(7) + "".join(c.rjust(11) for c in cells))
+        return 0
+
+    if not args.symbol:
+        p.error("--symbol is required for single-stock analysis (or use --compare)")
+    profile = _resolve_profiles({args.symbol.upper(): (filings[0].get("metadata") or {}).get("fiscal_year")}
+                                ).get(args.symbol.upper())
     out = analyze(args.symbol, filings, profile, narrative=args.narrative, args=args)
     path = save_analysis(out, f"{args.symbol.upper()}_analysis.json")
-    nflags = len(out["red_flags"])
     print(f"🧮 {out['symbol']} [{out['archetype']}] → {path}  "
-          f"({len(out['years'])} years, {nflags} red flag(s))")
+          f"({len(out['years'])} years, {len(out['red_flags'])} red flag(s))")
     for fl in out["red_flags"]:
         print(f"   {'🚨' if fl['severity'] == 'alert' else '⚠️ '} {fl['message']}")
     return 0

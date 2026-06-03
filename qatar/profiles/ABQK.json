@@ -29,8 +29,14 @@
     "KPI_ROA"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Wholesale",
+      "Retail",
+      "Treasury & Investments"
+    ]
   },
   "subsidiaries": [],
   "events": [
@@ -50,8 +56,7 @@
   "peers": [
     "QNBK",
     "CBQK",
-    "DHBK",
-    "KCBK"
+    "DHBK"
   ],
   "accounting_quirks": []
 }

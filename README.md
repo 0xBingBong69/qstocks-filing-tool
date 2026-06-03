@@ -175,6 +175,30 @@ The browser app adds an **adjustable DCF panel** (discount rate / growth / termi
 grid. (A bank model collapses to book value when ROE equals the cost of equity — the
 standard sanity check — and is covered by tests.)
 
+### Peer comparison
+
+`qscreen_analyze.compare()` ranks a stock against its profile-defined peers on the ratios
+that matter for its type (banks on ROE / cost-income / NPL / CAR; industrials on margins /
+leverage; …), scoring everyone on the *target's* archetype so it's apples-to-apples, with
+the target highlighted and each metric ranked.
+
+```bash
+python3 qscreen_analyze.py --compare --symbol QNBK \
+  QNBK_2023_FY_filing.json CBQK_2023_FY_filing.json DHBK_2023_FY_filing.json
+```
+
+In the browser, the **"Compare extracted filings"** panel takes several `*_filing.json`
+files and renders a ranked table; `POST /compare` is the API.
+
+### Saving & uploading the analysis ("both outputs")
+
+The extract CLI can persist the derived analysis and valuation next to the filing with
+`--analyze` (writes `<symbol>_<year>_<period>_analysis.json` and `_valuation.json`), and
+**fold the analysis into the qscreen.app upload** additively with `--with-analysis`. In the
+browser there's an "include analysis in upload" checkbox. The filing contract itself is
+unchanged (the analysis rides as a sibling key), so a backend that ignores unknown keys is
+unaffected.
+
 ## Testing
 
 ```bash

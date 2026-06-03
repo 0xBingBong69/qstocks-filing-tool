@@ -23,11 +23,24 @@
     "KPI_ROA"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Managed IT services",
+      "Data centres",
+      "Cloud & cybersecurity"
+    ]
   },
   "subsidiaries": [],
-  "events": [],
+  "events": [
+    {
+      "year": 2023,
+      "type": "ipo",
+      "title": "IPO / QSE listing",
+      "effect": "MEEZA listed on the Qatar Stock Exchange in 2023."
+    }
+  ],
   "peers": [
     "TQES"
   ],

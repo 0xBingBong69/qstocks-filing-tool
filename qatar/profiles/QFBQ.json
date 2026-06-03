@@ -33,8 +33,15 @@
     "KPI_ROA"
   ],
   "segments_expected": {
-    "by_geography": [],
-    "by_business": []
+    "by_geography": [
+      "Qatar",
+      "International"
+    ],
+    "by_business": [
+      "Principal investments",
+      "Investment banking",
+      "Asset management"
+    ]
   },
   "subsidiaries": [],
   "events": [
