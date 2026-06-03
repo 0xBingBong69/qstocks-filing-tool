@@ -47,9 +47,10 @@ minimax / openrouter / kimi / openai / anthropic; see --list-providers):
      INGEST_TOKEN=...                   # qscreen.app ingest token (to upload)
      QSCREEN_API_URL=https://qscreen.app
 
-   No key, fully offline? Run a model on your laptop instead (Ollama / LM Studio /
-   llama.cpp / Jan / GPT4All) and add --provider ollama — even a 2-bit Gemma works,
-   guided mode turns on automatically. See --list-providers.
+   No key, fully offline? Run a model on your laptop (Ollama / MLX / LM Studio / …)
+   and add --provider ollama — even Gemma 3 270M works in --basic mode (numbers are
+   read from the PDF's tables in code). Or skip the model entirely with --no-llm.
+   Pro mode (--pro) extracts everything but wants a strong model. See --list-providers.
 
 PER FILING — run exactly one command:
      python3 $TOOL <PDF> --symbol QIBK --sector islamic_bank --year 2024 --period FY

@@ -152,6 +152,7 @@ PAGE = """<!doctype html>
             <option value="llamacpp">llama.cpp (local)</option>
             <option value="jan">Jan (local)</option>
             <option value="gpt4all">GPT4All (local)</option>
+            <option value="mlx">MLX — Apple (local)</option>
           </optgroup>
         </select>
       </div>
@@ -159,9 +160,19 @@ PAGE = """<!doctype html>
         <input name="model" id="model" placeholder="default" autocomplete="off"></div>
     </div>
     <p class="keyhint" id="provkey"></p>
-    <label class="guided"><input type="checkbox" name="guided" id="guided" value="1">
-      Guided mode — walk a small / local model through the filing step by step
-      <span class="muted">(auto-on for local models)</span></label>
+    <div class="row">
+      <div><label>Mode</label>
+        <select name="mode" id="mode">
+          <option value="auto">Auto (Basic for local, Pro for cloud)</option>
+          <option value="basic">Basic — deterministic, great for tiny / local models</option>
+          <option value="pro">Pro — model extracts everything (use a strong model)</option>
+        </select>
+      </div>
+    </div>
+    <label class="guided"><input type="checkbox" name="no_llm" id="no_llm" value="1">
+      Run fully offline — read numbers from the PDF tables with <b>no model at all</b>
+      <span class="muted">(Basic; needs no key)</span></label>
+    <p class="keyhint" id="modehint"></p>
   </details>
   <button type="submit" id="go">Extract</button>
 </form>
@@ -186,17 +197,17 @@ const UPLOAD_ENABLED = __UPLOAD_ENABLED__;
 const PROVIDER_INFO = __PROVIDER_INFO_JSON__;
 const f = document.getElementById('f'), out = document.getElementById('out'), go = document.getElementById('go');
 const provEl = document.getElementById('provider'), modelEl = document.getElementById('model'),
-      provKey = document.getElementById('provkey');
+      provKey = document.getElementById('provkey'), modeEl = document.getElementById('mode'),
+      noLlmEl = document.getElementById('no_llm'), modeHint = document.getElementById('modehint');
 function updateProvider() {
   const info = PROVIDER_INFO[provEl.value];
-  const guidedEl = document.getElementById('guided');
   if (info && info.local) {
     modelEl.placeholder = info.model || 'default';
     provKey.innerHTML = '💻 <b>' + info.label + '</b> runs on your laptop — <b>no API key needed</b>. ' +
-      (info.setup ? esc(info.setup) + '. ' : '') +
+      (info.setup ? '<code>' + esc(info.setup) + '</code>. ' : '') +
       '<a href="' + info.url + '" target="_blank" rel="noopener">Download / docs &#8599;</a>. ' +
-      'Make sure it is running, then click Extract. Guided mode is recommended for small models.';
-    if (guidedEl) guidedEl.checked = true;
+      'Make sure it is running, then click Extract.';
+    if (modeEl && modeEl.value === 'auto') modeEl.value = 'basic';   // tiny models → Basic
   } else if (info) {
     modelEl.placeholder = info.model || 'default';
     provKey.innerHTML = '🔑 Need a key for <b>' + info.label + '</b>? ' +
@@ -207,8 +218,30 @@ function updateProvider() {
     provKey.innerHTML = '🔑 Use a cloud key (one <code>*_API_KEY</code> in <code>.env</code>) ' +
       'or pick a <b>local</b> model above to run fully offline with no key.';
   }
+  updateMode();
 }
-if (provEl) { provEl.addEventListener('change', updateProvider); updateProvider(); }
+function updateMode() {
+  if (!modeHint) return;
+  if (noLlmEl && noLlmEl.checked) {
+    modeHint.innerHTML = '⚙️ <b>Fully offline.</b> Line items are read straight from the PDF\'s tables — ' +
+      'no model is called. Audit/notes are skipped. Works with no key and no model running.';
+    return;
+  }
+  const m = modeEl ? modeEl.value : 'auto';
+  if (m === 'pro') {
+    modeHint.innerHTML = '🧠 <b>Pro.</b> The model extracts everything (richer notes & segments). ' +
+      'Use a strong model — GPT‑4.5+/Claude Sonnet 4+/MiniMax‑M2.';
+  } else if (m === 'basic') {
+    modeHint.innerHTML = '🧭 <b>Basic.</b> Numbers are read from the PDF\'s tables in code; the model only ' +
+      'fills gaps and classifies the audit opinion. Great for a tiny / local model (e.g. Gemma 3 270M via MLX).';
+  } else {
+    modeHint.innerHTML = '🧭 <b>Auto.</b> Basic for local models, Pro for cloud models.';
+  }
+}
+if (provEl) { provEl.addEventListener('change', updateProvider); }
+if (modeEl) { modeEl.addEventListener('change', updateMode); }
+if (noLlmEl) { noLlmEl.addEventListener('change', updateMode); }
+updateProvider();
 
 function fmtNum(x){ return (x==null)?'—':Number(x).toLocaleString(); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -536,7 +569,8 @@ def extract():
         sector = SUBSECTOR_TO_EXTRACTION.get(subsector, "other")
         provider = (request.form.get("provider") or "").strip() or None  # None → auto-detect
         model = (request.form.get("model") or "").strip() or None
-        guided = bool(request.form.get("guided"))   # checkbox → explicit on
+        mode = (request.form.get("mode") or "auto").strip()   # auto | basic | pro
+        no_llm = bool(request.form.get("no_llm"))             # fully-offline checkbox
 
         # Build the same args object the CLI uses; resolve_provider picks the
         # base URL / model / key (from the matching env var) and validates them.
@@ -546,12 +580,21 @@ def extract():
             max_tokens=16384, timeout=600, retries=4,
             pages_per_chunk=12, overlap=1, no_chunk=False,
             no_json_mode=False, llm_key=None,
-            guided=guided, no_guided=False, guided_notes=False,
+            mode=mode, basic=False, pro=False, no_llm=no_llm,
+            guided=False, no_guided=False, guided_notes=False,
         )
-        cfg = engine.resolve_provider(args)   # raises SystemExit (caught below) if no provider/key
-        # Guided mode walks a small/local model through the filing in tiny steps;
-        # it is on when the box is checked and auto-on for local runtimes.
-        args.guided = engine.resolve_guided(args, cfg)
+        engine.apply_mode(args)               # --mode/--no-llm → guided flags
+        # Fully-offline (--no-llm) needs no provider at all; otherwise resolve it.
+        try:
+            cfg = engine.resolve_provider(args)   # raises SystemExit (caught below) if no provider/key
+        except SystemExit:
+            if no_llm:
+                cfg = engine.deterministic_cfg()
+            else:
+                raise
+        args.guided = engine.resolve_guided(args, cfg)   # Basic vs Pro
+        if no_llm:
+            args.guided = True
         if args.guided:
             args.pages_per_chunk = engine.GUIDED_DEFAULT_PAGES
         args._profile = qatar.profile_for_year(symbol, int(year))  # company+year-aware prompting

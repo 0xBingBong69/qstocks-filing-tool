@@ -51,6 +51,7 @@ QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
 | Runtime | `--provider` | Default URL | Install / run | Default model |
 |---------|--------------|-------------|---------------|---------------|
 | **Ollama** | `ollama` (alias `local`) | `http://localhost:11434/v1` | [ollama.com](https://ollama.com/download) → `ollama pull gemma2:2b` | `gemma2:2b` |
+| **MLX** (Apple) | `mlx` (alias `apple`) | `http://localhost:8080/v1` | [mlx-lm](https://github.com/ml-explore/mlx-lm) → `mlx_lm.server --model …` | `mlx-community/gemma-3-270m-it-4bit` |
 | LM Studio | `lmstudio` | `http://localhost:1234/v1` | [lmstudio.ai](https://lmstudio.ai/) → load model → Start Server | *(loaded model)* |
 | llama.cpp | `llamacpp` | `http://localhost:8080/v1` | [llama.cpp](https://github.com/ggml-org/llama.cpp) → `llama-server -m model.gguf` | *(loaded model)* |
 | Jan | `jan` | `http://localhost:1337/v1` | [jan.ai](https://jan.ai/) → Local API Server → Start | *(loaded model)* |
@@ -74,39 +75,48 @@ QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
 > or permit it in the environment's network policy. A **local** runtime on
 > `localhost` sidesteps this — nothing leaves your machine.
 
-### Local / offline models (no API key)
+### Basic ↔ Pro — and ultra-light / offline models (no API key)
 
-Want to run everything on your laptop with a small open model — even a 2-bit
-quantized Gemma? Two steps:
+The tool runs in two modes. **Auto** (the default) picks Basic for local models and
+Pro for cloud models; force either with `--basic` / `--pro` (or `--mode basic|pro`).
+
+| Mode | What runs | Best model |
+|------|-----------|-----------|
+| **Basic** | line items are **read from the PDF's tables in code** — the model never touches a number; it only fills gaps and classifies the audit opinion | a tiny local model (Gemma 3 270M via MLX, small Ollama models) |
+| **Basic + `--no-llm`** | pure Python, **no model at all** (audit `unknown`, notes `[]`) | none — fully offline, no key |
+| **Pro** | the model extracts everything — richer notes, segments, audit narrative | a strong model: **GPT‑4.5+ / Claude Sonnet 4+ / MiniMax‑M2** |
+
+**Run a 270M model on a Mac (MLX):**
 
 ```bash
-# 1. install a local runtime and pull a small model (Ollama shown here)
-ollama pull gemma2:2b
+pip install mlx-lm
+mlx_lm.server --model mlx-community/gemma-3-270m-it-4bit       # serves localhost:8080
 
-# 2. extract — guided mode turns on automatically for local runtimes
-python3 qscreen_ingest.py report.pdf --provider ollama \
+python3 qscreen_ingest.py report.pdf --provider mlx --basic \
   --symbol QIBK --sector islamic_bank --year 2024 --period FY --dry-run
 ```
 
-**Guided mode** is what makes small models work. A 2 B model can't hold the whole
-60-code contract in its head and emit one giant JSON object per chunk, so guided
-mode does the thinking in Python and asks the model only for the small,
-mechanical part it *can* do — read one short table and list its rows:
+**Or no model at all** (works anywhere, needs nothing running):
 
-1. find each statement by its heading (deterministic regex),
-2. ask the model for just that table's rows in a tiny `{label, current, prior}` shape,
-3. map each label to a canonical account code with built-in rules,
-4. read the unit scale, parse the numbers, and capture the audit opinion.
+```bash
+python3 qscreen_ingest.py report.pdf --no-llm \
+  --symbol QIBK --sector islamic_bank --year 2024 --period FY --dry-run
+```
 
-The result is the **same lossless filing contract** as the big-model path, assembled
-and merged locally.
+**Why this works on a 270M model.** Such a small model can't reliably read numbers
+out of dense tables, so Basic mode does the number-reading deterministically — the
+PDF's tables are already captured as text, and the engine parses each row, maps the
+label to a canonical account code, fixes the sign/scale, and recovers the prior-year
+column, all in code. Every line item is tagged `basis: "parsed"` (from a table) vs
+`"llm"` (from the model) so you can see exactly where each figure came from. The
+output is the **same lossless filing contract** as Pro.
 
-- **Auto-on for local runtimes.** Force it on/off anywhere with `--guided` /
-  `--no-guided` (or env `QSCREEN_GUIDED=1`/`0`). It also works against a cloud
-  provider if you want a cheaper, more reliable run on a weak model.
-- `--guided-notes` adds a best-effort pass over the accounting notes (off by default
-  to keep small-model runs fast).
-- Guided mode uses **small page windows** (≤3 pages) so each step fits a tiny context.
+- **Use the `-it` (instruction-tuned) model.** `mlx-community/gemma-3-270m-it-4bit`
+  follows the small asks far better than the base `…-270m-4bit`; the base still works
+  for `--no-llm` (which asks it nothing).
+- `--guided-notes` adds a best-effort notes pass; `--base-url` / `QSCREEN_BASE_URL`
+  point at a remote/alternate host.
+- Reliable audit/notes/segments need a capable model — use **Pro** for those.
 
 ## Option A — local browser app
 
@@ -120,9 +130,10 @@ When it finishes, click **Download** to get the `SYMBOL_YEAR_PERIOD_filing.json`
 Nothing is auto-uploaded — you stay in control. An **Upload to qscreen.app**
 button appears only when the server has `INGEST_TOKEN` set, and only uploads
 when you click it. An *Advanced* panel lets you pick a different provider/model —
-including a **local** model on your laptop (Ollama, LM Studio, …) with no API key —
-and a **Guided mode** toggle that walks a small/local model through the filing
-step by step (it switches on automatically when you pick a local runtime).
+including a **local** model on your laptop (Ollama, MLX, LM Studio, …) with no API
+key — a **Basic ↔ Pro** mode selector (Basic = deterministic-first for tiny/local
+models; Pro = a strong model extracts everything), and a **Run fully offline** box
+that extracts straight from the PDF tables with no model at all.
 
 ## Option B — CLI (per PDF)
 
@@ -134,9 +145,10 @@ python3 qscreen_ingest.py <PDF_PATH> \
 - `--sector`: `conventional_bank | islamic_bank | industrial | insurance | other`
 - `--period`: `FY | Q1 | Q2 | Q3 | Q4 | H1 | 9M` (default `FY`)
 - `--provider` / `--model` — choose the LLM (see the table above; default auto-detect).
-  Local runtimes (`ollama`, `lmstudio`, …) need **no key**.
-- `--guided` / `--no-guided` — step-by-step extraction for small / local models
-  (auto-on for local runtimes); `--guided-notes` adds a notes pass
+  Local runtimes (`ollama`, `mlx`, `lmstudio`, …) need **no key**.
+- `--basic` / `--pro` (or `--mode basic|pro`) — Basic = deterministic-first (great for
+  tiny/local models); Pro = the model extracts everything (use a strong model).
+  `--no-llm` = Basic with **no model at all** (fully offline). `--guided-notes` adds a notes pass.
 - `--dry-run` — produce the JSON **without** uploading (inspect first)
 - `--export csv` — also write a flat line-items table; `--export xlsx` — also write the
   **Excel financial-transcript workbook** (see below). Repeatable.
