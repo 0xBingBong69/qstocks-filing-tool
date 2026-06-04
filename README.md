@@ -25,7 +25,8 @@ pip install -e ".[xlsx,ocr]"     # + Excel export and OCR for scanned PDFs
 ## Configure (once)
 
 Create a `.env` next to the tool (it is gitignored). **Set the key for whichever
-LLM provider you use** — the tool auto-detects it:
+LLM provider you use** — the tool auto-detects it. *(Running a model locally?
+You can skip this entirely — see [Local / offline models](#local--offline-models-no-api-key).)*
 
 ```
 MINIMAX_API_KEY=...                 # or OPENROUTER_API_KEY / OPENAI_API_KEY /
@@ -36,6 +37,8 @@ QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
 
 ### Choosing a provider / model
 
+**Cloud** (need one API key):
+
 | Provider | `--provider` | API key env | **Get a key (click)** | Default model |
 |----------|--------------|-------------|-----------------------|---------------|
 | **MiniMax** | `minimax` | `MINIMAX_API_KEY` | [platform.minimax.io](https://platform.minimax.io/) | `MiniMax-M2` |
@@ -43,21 +46,79 @@ QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
 | Kimi (Moonshot) | `kimi` | `MOONSHOT_API_KEY` | [platform.moonshot.ai](https://platform.moonshot.ai/console/api-keys) | `kimi-k2-0905-preview` |
 | OpenAI | `openai` | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) | `gpt-4o` |
 | Claude (Anthropic) | `anthropic` / `claude` | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/settings/keys) | `claude-sonnet-4-5` |
-| Any OpenAI-compatible URL | `custom` | `LLM_API_KEY` | — | *(pass `--model` + `--base-url`)* |
+| Any OpenAI-compatible URL | `custom` | `LLM_API_KEY` *(optional)* | — | *(pass `--model` + `--base-url`)* |
+
+**Local / offline** — run a model on your own laptop, **no API key**:
+
+| Runtime | `--provider` | Default URL | Install / run | Default model |
+|---------|--------------|-------------|---------------|---------------|
+| **Ollama** | `ollama` (alias `local`) | `http://localhost:11434/v1` | [ollama.com](https://ollama.com/download) → `ollama pull gemma2:2b` | `gemma2:2b` |
+| **MLX** (Apple) | `mlx` (alias `apple`) | `http://localhost:8080/v1` | [mlx-lm](https://github.com/ml-explore/mlx-lm) → `mlx_lm.server --model …` | `mlx-community/gemma-3-270m-it-4bit` |
+| LM Studio | `lmstudio` | `http://localhost:1234/v1` | [lmstudio.ai](https://lmstudio.ai/) → load model → Start Server | *(loaded model)* |
+| llama.cpp | `llamacpp` | `http://localhost:8080/v1` | [llama.cpp](https://github.com/ggml-org/llama.cpp) → `llama-server -m model.gguf` | *(loaded model)* |
+| Jan | `jan` | `http://localhost:1337/v1` | [jan.ai](https://jan.ai/) → Local API Server → Start | *(loaded model)* |
+| GPT4All | `gpt4all` | `http://localhost:4891/v1` | [nomic.ai/gpt4all](https://www.nomic.ai/gpt4all) → enable API server | *(loaded model)* |
 
 > Get an API key from the **Get a key** link, then paste it into `.env` as the
-> matching `*_API_KEY`. That's the whole setup.
+> matching `*_API_KEY`. That's the whole setup. **For a local runtime there is no
+> key** — just install it, start it, and pass `--provider ollama` (etc.).
 
 - **Auto-detect:** leave `--provider` off and the tool uses whichever key is set.
 - **Force a provider:** `--provider minimax` (or env `QSCREEN_PROVIDER=minimax`).
 - **Pick a model:** `--model <id>` (or env `QSCREEN_MODEL`). Defaults are overridable —
   if a model id is rejected, the error tells you to pass `--model`.
+- **Point at a different host/port:** `--base-url` (or env `QSCREEN_BASE_URL`) — e.g. a
+  remote Ollama or a custom port.
 - `python3 qscreen_ingest.py --list-providers` prints this table.
 
 > **Note on Claude Code on the web:** the managed environment's network policy
 > may block LLM providers (e.g. `openrouter.ai`, `api.anthropic.com`). The
 > extractor needs to reach the provider, so run it where that host is allowed,
-> or permit it in the environment's network policy.
+> or permit it in the environment's network policy. A **local** runtime on
+> `localhost` sidesteps this — nothing leaves your machine.
+
+### Basic ↔ Pro — and ultra-light / offline models (no API key)
+
+The tool runs in two modes. **Auto** (the default) picks Basic for local models and
+Pro for cloud models; force either with `--basic` / `--pro` (or `--mode basic|pro`).
+
+| Mode | What runs | Best model |
+|------|-----------|-----------|
+| **Basic** | line items are **read from the PDF's tables in code** — the model never touches a number; it only fills gaps and classifies the audit opinion | a tiny local model (Gemma 3 270M via MLX, small Ollama models) |
+| **Basic + `--no-llm`** | pure Python, **no model at all** (audit `unknown`, notes `[]`) | none — fully offline, no key |
+| **Pro** | the model extracts everything — richer notes, segments, audit narrative | a strong model: **GPT‑4.5+ / Claude Sonnet 4+ / MiniMax‑M2** |
+
+**Run a 270M model on a Mac (MLX):**
+
+```bash
+pip install mlx-lm
+mlx_lm.server --model mlx-community/gemma-3-270m-it-4bit       # serves localhost:8080
+
+python3 qscreen_ingest.py report.pdf --provider mlx --basic \
+  --symbol QIBK --sector islamic_bank --year 2024 --period FY --dry-run
+```
+
+**Or no model at all** (works anywhere, needs nothing running):
+
+```bash
+python3 qscreen_ingest.py report.pdf --no-llm \
+  --symbol QIBK --sector islamic_bank --year 2024 --period FY --dry-run
+```
+
+**Why this works on a 270M model.** Such a small model can't reliably read numbers
+out of dense tables, so Basic mode does the number-reading deterministically — the
+PDF's tables are already captured as text, and the engine parses each row, maps the
+label to a canonical account code, fixes the sign/scale, and recovers the prior-year
+column, all in code. Every line item is tagged `basis: "parsed"` (from a table) vs
+`"llm"` (from the model) so you can see exactly where each figure came from. The
+output is the **same lossless filing contract** as Pro.
+
+- **Use the `-it` (instruction-tuned) model.** `mlx-community/gemma-3-270m-it-4bit`
+  follows the small asks far better than the base `…-270m-4bit`; the base still works
+  for `--no-llm` (which asks it nothing).
+- `--guided-notes` adds a best-effort notes pass; `--base-url` / `QSCREEN_BASE_URL`
+  point at a remote/alternate host.
+- Reliable audit/notes/segments need a capable model — use **Pro** for those.
 
 ## Option A — local browser app
 
@@ -70,7 +131,11 @@ Period (type a known symbol and the sub-sector auto-fills), click **Extract**.
 When it finishes, click **Download** to get the `SYMBOL_YEAR_PERIOD_filing.json`.
 Nothing is auto-uploaded — you stay in control. An **Upload to qscreen.app**
 button appears only when the server has `INGEST_TOKEN` set, and only uploads
-when you click it. An *Advanced* panel lets you pick a different provider/model.
+when you click it. An *Advanced* panel lets you pick a different provider/model —
+including a **local** model on your laptop (Ollama, MLX, LM Studio, …) with no API
+key — a **Basic ↔ Pro** mode selector (Basic = deterministic-first for tiny/local
+models; Pro = a strong model extracts everything), and a **Run fully offline** box
+that extracts straight from the PDF tables with no model at all.
 
 ## Option B — CLI (per PDF)
 
@@ -81,7 +146,11 @@ python3 qscreen_ingest.py <PDF_PATH> \
 
 - `--sector`: `conventional_bank | islamic_bank | industrial | insurance | other`
 - `--period`: `FY | Q1 | Q2 | Q3 | Q4 | H1 | 9M` (default `FY`)
-- `--provider` / `--model` — choose the LLM (see the table above; default auto-detect)
+- `--provider` / `--model` — choose the LLM (see the table above; default auto-detect).
+  Local runtimes (`ollama`, `mlx`, `lmstudio`, …) need **no key**.
+- `--basic` / `--pro` (or `--mode basic|pro`) — Basic = deterministic-first (great for
+  tiny/local models); Pro = the model extracts everything (use a strong model).
+  `--no-llm` = Basic with **no model at all** (fully offline). `--guided-notes` adds a notes pass.
 - `--dry-run` — produce the JSON **without** uploading (inspect first)
 - `--export csv|xlsx|html` — also write a flat line-items table, the **Excel transcript**
   workbook, and/or the printable **statements document** (repeatable; see below)

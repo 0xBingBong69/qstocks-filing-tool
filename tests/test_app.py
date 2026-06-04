@@ -41,6 +41,74 @@ def test_index_lists_all_providers(client):
     assert "platform.minimax.io" in html
 
 
+def test_index_lists_local_providers_and_modes(client):
+    html = client.get("/").get_data(as_text=True)
+    for v in ("ollama", "lmstudio", "llamacpp", "jan", "gpt4all", "mlx"):
+        assert f'value="{v}"' in html
+    assert 'name="mode"' in html and 'name="no_llm"' in html  # Basic/Pro + offline controls
+    assert '"local": true' in html                            # PROVIDER_INFO carries the flag
+    assert "no API key" in html or "no key" in html
+
+
+def _fake_filing():
+    f = app_mod.engine.empty_filing()
+    f["statements"].append({"type": "income_statement", "title": "IS", "period_label": "2024",
+                            "verbatim_text": "x",
+                            "line_items": [{"account_code": None, "label_verbatim": "Rev", "value": 1}]})
+    return f
+
+
+def test_extract_form_threads_basic_mode(client, monkeypatch):
+    # The /extract route must map mode=basic → guided and shrink the window size.
+    import io
+    captured = {}
+
+    def fake_extract_filing(pages, args):
+        captured["guided"] = args.guided
+        captured["pages_per_chunk"] = args.pages_per_chunk
+        return _fake_filing()
+
+    monkeypatch.setattr(app_mod.engine, "resolve_provider",
+                        lambda args: {"name": "openai", "model": "gpt-4o", "local": False,
+                                      "base_url": "https://api.openai.com/v1", "kind": "openai", "key": "k"})
+    monkeypatch.setattr(app_mod.engine, "pdf_to_pages", lambda path: ([{"num": 1, "text": "x"}], "sha"))
+    monkeypatch.setattr(app_mod.engine, "extract_filing", fake_extract_filing)
+
+    r = client.post("/extract", data={"symbol": "QNBK", "subsector": "Commercial Bank",
+                                       "year": "2024", "period": "FY", "provider": "openai",
+                                       "mode": "basic",
+                                       "pdf": (io.BytesIO(b"%PDF-1.4 fake"), "x.pdf")},
+                    content_type="multipart/form-data")
+    assert r.status_code == 200, r.get_json()
+    assert captured["guided"] is True                         # basic forces guided even for cloud
+    assert captured["pages_per_chunk"] == app_mod.engine.GUIDED_DEFAULT_PAGES
+
+
+def test_extract_no_llm_needs_no_provider(client, monkeypatch):
+    # Fully-offline (--no-llm) works even when no provider/key can be resolved.
+    import io
+    captured = {}
+
+    def boom(args):
+        raise SystemExit("No LLM provider selected and no provider API key found.")
+
+    def fake_extract_filing(pages, args):
+        captured["guided"] = args.guided
+        captured["no_llm"] = args.no_llm
+        return _fake_filing()
+
+    monkeypatch.setattr(app_mod.engine, "resolve_provider", boom)
+    monkeypatch.setattr(app_mod.engine, "pdf_to_pages", lambda path: ([{"num": 1, "text": "x"}], "sha"))
+    monkeypatch.setattr(app_mod.engine, "extract_filing", fake_extract_filing)
+
+    r = client.post("/extract", data={"symbol": "QNBK", "subsector": "Commercial Bank",
+                                       "year": "2024", "period": "FY", "no_llm": "1",
+                                       "pdf": (io.BytesIO(b"%PDF-1.4 fake"), "x.pdf")},
+                    content_type="multipart/form-data")
+    assert r.status_code == 200, r.get_json()
+    assert captured["no_llm"] is True and captured["guided"] is True
+
+
 def test_extract_requires_pdf(client):
     r = client.post("/extract", data={"symbol": "QIBK", "subsector": "Islamic Bank", "year": "2024"})
     assert r.status_code == 400

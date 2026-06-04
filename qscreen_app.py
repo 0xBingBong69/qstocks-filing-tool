@@ -85,6 +85,8 @@ PAGE = """<!doctype html>
   details.adv { margin-top: 14px; } summary { cursor: pointer; color: #06c; font-weight: 600; }
   .keyhint { background: #eef6ff; border: 1px solid #cfe3ff; border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 13px; line-height: 1.5; }
   .keyhint a { color: #06c; font-weight: 700; } .keyhint code { background: #dceaff; padding: 1px 5px; border-radius: 4px; }
+  label.guided { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; font-weight: 600; }
+  label.guided input { width: auto; }
   .seg { margin-top: 18px; } .seg h3 { font-size: 16px; margin: 8px 0; } .seg h4 { font-size: 13px; color: #555; text-transform: capitalize; margin: 12px 0 4px; }
   table.seg { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.seg th, table.seg td { border-bottom: 1px solid #eee; padding: 5px 8px; text-align: right; }
@@ -132,22 +134,45 @@ PAGE = """<!doctype html>
       </select>
     </div>
   </div>
-  <details class="adv" open><summary>Provider / model — need an API key? open this</summary>
+  <details class="adv" open><summary>Provider / model — cloud key OR a local model on your laptop</summary>
     <div class="row">
       <div><label>AI Provider</label>
         <select name="provider" id="provider">
           <option value="">auto (use whichever key is set)</option>
-          <option value="minimax">MiniMax</option>
-          <option value="openrouter">OpenRouter</option>
-          <option value="kimi">Kimi (Moonshot)</option>
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Claude (Anthropic)</option>
+          <optgroup label="Cloud (needs an API key)">
+            <option value="minimax">MiniMax</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="kimi">Kimi (Moonshot)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Claude (Anthropic)</option>
+          </optgroup>
+          <optgroup label="Local — on your laptop, no API key">
+            <option value="ollama">Ollama (local)</option>
+            <option value="lmstudio">LM Studio (local)</option>
+            <option value="llamacpp">llama.cpp (local)</option>
+            <option value="jan">Jan (local)</option>
+            <option value="gpt4all">GPT4All (local)</option>
+            <option value="mlx">MLX — Apple (local)</option>
+          </optgroup>
         </select>
       </div>
       <div><label>Model <span class="muted">(blank = provider default)</span></label>
         <input name="model" id="model" placeholder="default" autocomplete="off"></div>
     </div>
     <p class="keyhint" id="provkey"></p>
+    <div class="row">
+      <div><label>Mode</label>
+        <select name="mode" id="mode">
+          <option value="auto">Auto (Basic for local, Pro for cloud)</option>
+          <option value="basic">Basic — deterministic, great for tiny / local models</option>
+          <option value="pro">Pro — model extracts everything (use a strong model)</option>
+        </select>
+      </div>
+    </div>
+    <label class="guided"><input type="checkbox" name="no_llm" id="no_llm" value="1">
+      Run fully offline — read numbers from the PDF tables with <b>no model at all</b>
+      <span class="muted">(Basic; needs no key)</span></label>
+    <p class="keyhint" id="modehint"></p>
   </details>
   <button type="submit" id="go">Extract</button>
 </form>
@@ -172,21 +197,51 @@ const UPLOAD_ENABLED = __UPLOAD_ENABLED__;
 const PROVIDER_INFO = __PROVIDER_INFO_JSON__;
 const f = document.getElementById('f'), out = document.getElementById('out'), go = document.getElementById('go');
 const provEl = document.getElementById('provider'), modelEl = document.getElementById('model'),
-      provKey = document.getElementById('provkey');
+      provKey = document.getElementById('provkey'), modeEl = document.getElementById('mode'),
+      noLlmEl = document.getElementById('no_llm'), modeHint = document.getElementById('modehint');
 function updateProvider() {
   const info = PROVIDER_INFO[provEl.value];
-  if (info) {
+  if (info && info.local) {
+    modelEl.placeholder = info.model || 'default';
+    provKey.innerHTML = '💻 <b>' + info.label + '</b> runs on your laptop — <b>no API key needed</b>. ' +
+      (info.setup ? '<code>' + esc(info.setup) + '</code>. ' : '') +
+      '<a href="' + info.url + '" target="_blank" rel="noopener">Download / docs &#8599;</a>. ' +
+      'Make sure it is running, then click Extract.';
+    if (modeEl && modeEl.value === 'auto') modeEl.value = 'basic';   // tiny models → Basic
+  } else if (info) {
     modelEl.placeholder = info.model || 'default';
     provKey.innerHTML = '🔑 Need a key for <b>' + info.label + '</b>? ' +
       '<a href="' + info.url + '" target="_blank" rel="noopener">Click here to get one &#8599;</a>' +
       ', then add <code>' + info.env + '=your-key</code> to the <code>.env</code> file next to the app and restart it.';
   } else {
     modelEl.placeholder = 'default';
-    provKey.innerHTML = '🔑 You need ONE provider API key. Pick a provider above to get a sign-up link, ' +
-      'then add it to the <code>.env</code> file next to the app (e.g. <code>MINIMAX_API_KEY=your-key</code>) and restart it.';
+    provKey.innerHTML = '🔑 Use a cloud key (one <code>*_API_KEY</code> in <code>.env</code>) ' +
+      'or pick a <b>local</b> model above to run fully offline with no key.';
+  }
+  updateMode();
+}
+function updateMode() {
+  if (!modeHint) return;
+  if (noLlmEl && noLlmEl.checked) {
+    modeHint.innerHTML = '⚙️ <b>Fully offline.</b> Line items are read straight from the PDF\'s tables — ' +
+      'no model is called. Audit/notes are skipped. Works with no key and no model running.';
+    return;
+  }
+  const m = modeEl ? modeEl.value : 'auto';
+  if (m === 'pro') {
+    modeHint.innerHTML = '🧠 <b>Pro.</b> The model extracts everything (richer notes & segments). ' +
+      'Use a strong model — GPT‑4.5+/Claude Sonnet 4+/MiniMax‑M2.';
+  } else if (m === 'basic') {
+    modeHint.innerHTML = '🧭 <b>Basic.</b> Numbers are read from the PDF\'s tables in code; the model only ' +
+      'fills gaps and classifies the audit opinion. Great for a tiny / local model (e.g. Gemma 3 270M via MLX).';
+  } else {
+    modeHint.innerHTML = '🧭 <b>Auto.</b> Basic for local models, Pro for cloud models.';
   }
 }
-if (provEl) { provEl.addEventListener('change', updateProvider); updateProvider(); }
+if (provEl) { provEl.addEventListener('change', updateProvider); }
+if (modeEl) { modeEl.addEventListener('change', updateMode); }
+if (noLlmEl) { noLlmEl.addEventListener('change', updateMode); }
+updateProvider();
 
 function fmtNum(x){ return (x==null)?'—':Number(x).toLocaleString(); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -482,7 +537,8 @@ if (ttmBtn) ttmBtn.onclick = runTtm;
 def index():
     upload_enabled = bool(os.getenv("INGEST_TOKEN"))
     provider_info = {name: {"label": cfg["label"], "model": cfg["default_model"],
-                            "url": cfg["key_url"], "env": cfg["env"][0]}
+                            "url": cfg["key_url"], "env": cfg["env"][0],
+                            "local": bool(cfg.get("local")), "setup": cfg.get("setup", "")}
                      for name, cfg in engine.PROVIDERS.items()}
     html = (PAGE
             .replace("__SUBSECTOR_OPTIONS__", _subsector_options_html())
@@ -513,6 +569,8 @@ def extract():
         sector = SUBSECTOR_TO_EXTRACTION.get(subsector, "other")
         provider = (request.form.get("provider") or "").strip() or None  # None → auto-detect
         model = (request.form.get("model") or "").strip() or None
+        mode = (request.form.get("mode") or "auto").strip()   # auto | basic | pro
+        no_llm = bool(request.form.get("no_llm"))             # fully-offline checkbox
 
         # Build the same args object the CLI uses; resolve_provider picks the
         # base URL / model / key (from the matching env var) and validates them.
@@ -522,8 +580,23 @@ def extract():
             max_tokens=16384, timeout=600, retries=4,
             pages_per_chunk=12, overlap=1, no_chunk=False,
             no_json_mode=False, llm_key=None,
+            mode=mode, basic=False, pro=False, no_llm=no_llm,
+            guided=False, no_guided=False, guided_notes=False,
         )
-        cfg = engine.resolve_provider(args)   # raises SystemExit (caught below) if no provider/key
+        engine.apply_mode(args)               # --mode/--no-llm → guided flags
+        # Fully-offline (--no-llm) needs no provider at all; otherwise resolve it.
+        try:
+            cfg = engine.resolve_provider(args)   # raises SystemExit (caught below) if no provider/key
+        except SystemExit:
+            if no_llm:
+                cfg = engine.deterministic_cfg()
+            else:
+                raise
+        args.guided = engine.resolve_guided(args, cfg)   # Basic vs Pro
+        if no_llm:
+            args.guided = True
+        if args.guided:
+            args.pages_per_chunk = engine.GUIDED_DEFAULT_PAGES
         args._profile = qatar.profile_for_year(symbol, int(year))  # company+year-aware prompting
 
         # Save the upload to a private temp file (not a predictable CWD path).

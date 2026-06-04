@@ -359,7 +359,10 @@ def test_extract_windowed_skips_unparseable(monkeypatch):
 
 _PROVIDER_ENV = ("MINIMAX_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY",
                  "ANTHROPIC_API_KEY", "MOONSHOT_API_KEY", "KIMI_API_KEY",
-                 "QSCREEN_PROVIDER", "LLM_PROVIDER", "QSCREEN_MODEL", "LLM_API_KEY")
+                 "QSCREEN_PROVIDER", "LLM_PROVIDER", "QSCREEN_MODEL", "LLM_API_KEY",
+                 "OLLAMA_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_KEY",
+                 "JAN_API_KEY", "GPT4ALL_API_KEY",
+                 "QSCREEN_BASE_URL", "LLM_BASE_URL", "QSCREEN_GUIDED")
 
 
 @pytest.fixture
