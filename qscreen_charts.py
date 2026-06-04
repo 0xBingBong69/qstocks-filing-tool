@@ -12,6 +12,8 @@ put the baseline at zero, and colour negative bars differently.
 """
 from __future__ import annotations
 
+import html
+
 
 def _finite(values) -> list:
     return [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
@@ -70,12 +72,13 @@ def bars(labels, values, width: int = 460, height: int = 190, title: str | None 
     y0 = Y(0)
     out = [f"<svg class='bars' width='{width}' height='{height}' viewBox='0 0 {width} {height}'>"]
     if title:
-        out.append(f"<text x='{pad_l}' y='13' font-size='11' fill='#555' font-weight='600'>{title}</text>")
+        out.append(f"<text x='{pad_l}' y='13' font-size='11' fill='#555' font-weight='600'>"
+                   f"{html.escape(str(title))}</text>")
     out.append(f"<line x1='{pad_l}' y1='{y0:.1f}' x2='{width - pad_l}' y2='{y0:.1f}' stroke='#ccc'/>")
     for i, v in enumerate(values):
         cx = pad_l + gap * i + (gap - bw) / 2
         mid = cx + bw / 2
-        label = str(labels[i]) if i < len(labels) else ""
+        label = html.escape(str(labels[i])) if i < len(labels) else ""
         if isinstance(v, (int, float)) and not isinstance(v, bool):
             top = Y(max(v, 0))
             h = abs(Y(v) - y0)

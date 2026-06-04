@@ -21,6 +21,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import traceback
@@ -44,6 +45,13 @@ except ImportError:
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB upload cap
+
+
+def _safe_filename(s, fallback: str = "filing") -> str:
+    """A download filename safe to drop into a Content-Disposition header — no
+    quotes, path separators, or control chars (which a filing's symbol could carry)."""
+    cleaned = re.sub(r"[^A-Za-z0-9._-]", "_", str(s or "")).strip("._")
+    return cleaned[:64] or fallback
 
 # ── QSE taxonomy + per-stock knowledge ───────────────────────────────────────
 # The sector → sub-sector tree and the symbol map now live in the qatar/ package
@@ -272,7 +280,7 @@ function fmtCmp(name, v){
   return Number(v).toLocaleString();
 }
 function renderCompare(d){
-  if(!d || !d.rows || !d.rows.length) return '<span class="warn">'+((d&&d.error)||'nothing to compare')+'</span>';
+  if(!d || !d.rows || !d.rows.length) return '<span class="warn">'+esc((d&&d.error)||'nothing to compare')+'</span>';
   const metrics = d.metrics.map(m=>m.name);
   let h = '<table class="cmp"><tr><th>Company</th>';
   for(const m of metrics) h += '<th>'+esc(m.replace(/_/g,' '))+'</th>';
@@ -293,7 +301,7 @@ async function runCompare(){
     const filings = await Promise.all([...inp.files].map(f => f.text().then(t => JSON.parse(t))));
     const r = await fetch('/compare', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({filings})});
     out.innerHTML = renderCompare(await r.json());
-  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+  } catch(e){ out.innerHTML = '<span class="err">'+esc(e)+'</span>'; }
 }
 async function runDashboard(){
   const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
@@ -306,7 +314,7 @@ async function runDashboard(){
     const url = URL.createObjectURL(new Blob([d.html], {type:'text/html'}));
     const a = document.createElement('a'); a.href = url; a.download = 'watchlist.html'; a.click(); URL.revokeObjectURL(url);
     out.innerHTML = '<span class="muted">Downloaded watchlist.html — screened '+d.count+' stock(s).</span>';
-  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+  } catch(e){ out.innerHTML = '<span class="err">'+esc(e)+'</span>'; }
 }
 async function runTtm(){
   const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
@@ -323,7 +331,7 @@ async function runTtm(){
     if((d.warnings||[]).length) h += '<p class="warn">'+d.warnings.map(esc).join('<br>')+'</p>';
     h += '<p class="muted">Periods: '+(d.periods||[]).map(esc).join(', ')+'</p></div>';
     out.innerHTML = h;
-  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+  } catch(e){ out.innerHTML = '<span class="err">'+esc(e)+'</span>'; }
 }
 async function runWorkbook(){
   const inp = document.getElementById('cmpfiles'), out = document.getElementById('cmpout');
@@ -336,7 +344,7 @@ async function runWorkbook(){
     const url = URL.createObjectURL(await r.blob());
     const a = document.createElement('a'); a.href = url; a.download = 'transcript.xlsx'; a.click(); URL.revokeObjectURL(url);
     out.innerHTML = '<span class="muted">Downloaded transcript.xlsx — '+filings.length+' filing(s).</span>';
-  } catch(e){ out.innerHTML = '<span class="err">'+e+'</span>'; }
+  } catch(e){ out.innerHTML = '<span class="err">'+esc(e)+'</span>'; }
 }
 function renderDcfPanel(){
   return '<div class="seg dcf"><h3>Valuation (DCF) — adjustable</h3>'
@@ -356,10 +364,10 @@ function runDcf(){
   const out = document.getElementById('dcfout'); out.textContent='Computing…';
   fetch('/dcf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
     .then(r=>r.json()).then(d=>{ out.innerHTML = renderDcfResult(d); })
-    .catch(e=>{ out.innerHTML='<span class="err">'+e+'</span>'; });
+    .catch(e=>{ out.innerHTML='<span class="err">'+esc(e)+'</span>'; });
 }
 function renderDcfResult(d){
-  if(!d || !d.valuation){ return '<span class="warn">'+((d&&d.warnings&&d.warnings.join('; '))||'no valuation')+'</span>'; }
+  if(!d || !d.valuation){ return '<span class="warn">'+esc((d&&d.warnings&&d.warnings.join('; '))||'no valuation')+'</span>'; }
   const v=d.valuation, ccy=d.reporting_currency||'';
   const headline = (v.per_share!=null) ? (ccy+' '+v.per_share.toFixed(2)+' / share')
                                        : (ccy+' '+fmtNum(Math.round(v.equity_value))+' equity value');
@@ -424,10 +432,10 @@ f.onsubmit = async (e) => {
   try {
     const res = await fetch('/extract', { method: 'POST', body: new FormData(f) });
     const data = await res.json();
-    if (!res.ok) { out.innerHTML = '<span class="err">Error: ' + (data.error||'unknown') + '</span>\\n\\n' + (data.detail||''); }
+    if (!res.ok) { out.innerHTML = '<span class="err">Error: ' + esc(data.error||'unknown') + '</span>\\n\\n' + esc(data.detail||''); }
     else {
-      let html = '<span class="' + (data.problems.length ? 'warn' : 'ok') + '">' + data.summary + '</span>';
-      if (data.problems.length) html += '\\n\\nNotes:\\n - ' + data.problems.join('\\n - ');
+      let html = '<span class="' + (data.problems.length ? 'warn' : 'ok') + '">' + esc(data.summary) + '</span>';
+      if (data.problems.length) html += '\\n\\nNotes:\\n - ' + data.problems.map(esc).join('\\n - ');
       lastBlob = new Blob([JSON.stringify(data.filing, null, 2)], {type:'application/json'});
       lastName = data.filename; lastFiling = data.filing;
       lastSymbol = (data.filing && data.filing.metadata && data.filing.metadata.symbol) || '';
@@ -518,7 +526,7 @@ f.onsubmit = async (e) => {
         }
       };
     }
-  } catch (err) { out.innerHTML = '<span class="err">Request failed: ' + err + '</span>'; }
+  } catch (err) { out.innerHTML = '<span class="err">Request failed: ' + esc(err) + '</span>'; }
   go.disabled = false; go.textContent = 'Extract';
 };
 const cmpBtn = document.getElementById('cmpgo');
@@ -612,7 +620,7 @@ def extract():
         filing.setdefault("metadata", {}).update({
             "symbol": symbol, "sector": sector, "sub_sector": subsector,
             "fiscal_year": int(year),
-            "fiscal_period": period, "source_file": up.filename, "source_sha256": sha,
+            "fiscal_period": period, "source_file": Path(up.filename or "").name, "source_sha256": sha,
             "extracted_at": engine.datetime.now(engine.timezone.utc).isoformat(),
             "extractor": {"provider": cfg["name"], "model": cfg["model"]},
         })
@@ -642,7 +650,10 @@ def extract():
     except SystemExit as e:                       # provider/key/model config errors
         return {"error": str(e)}, 400
     except Exception as e:
-        return {"error": str(e), "detail": traceback.format_exc()[-1500:]}, 500
+        # Log the full traceback server-side; do NOT leak it to the client (paths,
+        # library internals, and any input echoed in the message).
+        traceback.print_exc()
+        return {"error": f"{type(e).__name__}: {e}"}, 500
 
 
 @app.route("/workbook", methods=["POST"])
@@ -659,7 +670,7 @@ def workbook_route():
         data = qscreen_workbook.workbook_bytes(filings[-1], filings)
     except Exception as e:
         return {"error": str(e)}, 400
-    sym = (filings[-1].get("metadata") or {}).get("symbol") or "filing"
+    sym = _safe_filename((filings[-1].get("metadata") or {}).get("symbol"))
     return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="{sym}_transcript.xlsx"'})
 
@@ -705,7 +716,7 @@ def export_csv_route():
     w = csv.DictWriter(buf, fieldnames=engine.EXPORT_COLUMNS)
     w.writeheader()
     w.writerows(engine.flatten_line_items(filing))
-    sym = (filing.get("metadata") or {}).get("symbol") or "filing"
+    sym = _safe_filename((filing.get("metadata") or {}).get("symbol"))
     return Response(buf.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="{sym}_line_items.csv"'})
 
@@ -870,6 +881,9 @@ def main() -> None:
     host = os.getenv("QSCREEN_APP_HOST", "127.0.0.1")
     port = int(os.getenv("QSCREEN_APP_PORT", "8765"))
     print(f"\n  QScreen Filing Ingestor — open  http://{host}:{port}  in your browser\n")
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        print(f"  ⚠️  Binding to {host} exposes this tool (and any INGEST_TOKEN) on your "
+              "network. It has no authentication — only do this on a trusted network.\n")
     app.run(host=host, port=port, debug=False)
 
 
