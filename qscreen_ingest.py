@@ -53,18 +53,45 @@ __version__ = "1.0.0"
 
 # ── .env loader (no python-dotenv dependency) ────────────────────────────────
 
+def _dotenv_value(val: str) -> str:
+    """Parse one .env value: honour a surrounding quote, else drop an inline
+    comment. So `KEY=abc   # note` → 'abc', `KEY="a # b"` → 'a # b', and a value
+    that is only a comment → ''. (The shipped .env.example puts a ' # ...' note
+    after each key, so this stops that note being captured as part of the key.)"""
+    v = val.strip()
+    if v[:1] in ('"', "'"):                       # quoted → take what's inside the quotes
+        end = v.find(v[0], 1)
+        return v[1:end] if end != -1 else v[1:]
+    for i, ch in enumerate(v):                    # unquoted → cut at a '#' comment
+        if ch == "#" and (i == 0 or v[i - 1] in " \t"):
+            return v[:i].rstrip()
+    return v.rstrip()
+
+
+def _parse_dotenv(text: str) -> dict:
+    """Parse .env text → {key: value}. Tolerates blank/comment lines, an optional
+    `export ` prefix, and inline comments (see _dotenv_value)."""
+    out: dict = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        if key.startswith("export "):
+            key = key[len("export "):].strip()
+        if key:
+            out[key] = _dotenv_value(val)
+    return out
+
+
 def _load_dotenv() -> None:
     here = Path(__file__).resolve().parent
     for candidate in (here / ".env", here.parent / ".env"):
         if not candidate.is_file():
             continue
-        for raw in candidate.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, _, val = line.partition("=")
-            key, val = key.strip(), val.strip().strip('"').strip("'")
-            if key and key not in os.environ:
+        for key, val in _parse_dotenv(candidate.read_text(encoding="utf-8")).items():
+            if key not in os.environ:             # real env vars win over .env
                 os.environ[key] = val
 
 
@@ -354,6 +381,25 @@ def detect_provider() -> str | None:
         if any(os.getenv(k) for k in p["env"]):
             return name
     return None
+
+
+def provider_diagnostic() -> str:
+    """One human-readable line saying what the tool detects right now from the
+    environment / .env — so `--list-providers` can self-diagnose a missing or
+    misplaced key (e.g. a Kimi key left in MINIMAX_API_KEY)."""
+    name = detect_provider()
+    if not name:
+        return ("✗ No provider detected. Put one *_API_KEY in .env (the key alone after '=', "
+                "an inline '# ...' note is fine), or set QSCREEN_PROVIDER for a local runtime.")
+    if is_local_provider(name):
+        return f"✓ Detected local runtime: {name} (no API key needed)."
+    cfg = PROVIDERS.get(name) or {}
+    if any(os.getenv(k) for k in (cfg.get("env") or ())) or os.getenv("LLM_API_KEY"):
+        env_name = next((k for k in (cfg.get("env") or ()) if os.getenv(k)), "LLM_API_KEY")
+        return f"✓ Detected provider: {name} (API key found in {env_name})."
+    want = (cfg.get("env") or ["<KEY>"])[0]
+    return (f"⚠ Provider '{name}' is selected (QSCREEN_PROVIDER) but no API key is set for it — "
+            f"add {want}=... to .env.")
 
 
 def resolve_provider(args) -> dict:
@@ -2179,6 +2225,7 @@ def main() -> int:
 
     if args.list_providers:
         print(list_providers())
+        print("\n" + provider_diagnostic())
         return 0
     if args.self_test:
         return run_self_test()
