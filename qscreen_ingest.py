@@ -70,8 +70,11 @@ def _dotenv_value(val: str) -> str:
 
 def _parse_dotenv(text: str) -> dict:
     """Parse .env text → {key: value}. Tolerates blank/comment lines, an optional
-    `export ` prefix, and inline comments (see _dotenv_value)."""
+    `export ` prefix, inline comments (see _dotenv_value), and a leading UTF-8 BOM
+    (Windows editors like Notepad prepend one on "Save as UTF-8", which would
+    otherwise glue itself onto the first key — e.g. '\\ufeffMOONSHOT_API_KEY')."""
     out: dict = {}
+    text = text.lstrip("\ufeff")
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -90,7 +93,10 @@ def _load_dotenv() -> None:
     for candidate in (here / ".env", here.parent / ".env"):
         if not candidate.is_file():
             continue
-        for key, val in _parse_dotenv(candidate.read_text(encoding="utf-8")).items():
+        # utf-8-sig transparently drops a leading BOM if the file was saved as
+        # "UTF-8 with BOM" (the Windows/Notepad default); without this the first
+        # key would parse as '\ufeffMOONSHOT_API_KEY' and never be detected.
+        for key, val in _parse_dotenv(candidate.read_text(encoding="utf-8-sig")).items():
             if key not in os.environ:             # real env vars win over .env
                 os.environ[key] = val
 
@@ -801,6 +807,12 @@ def call_llm(messages: list[dict], args) -> str:
                 if resp.status_code in (401, 403):
                     hint = (" — check the API key, or this network may be blocking the "
                             f"provider (the network policy must allow {cfg['base_url']}).")
+                    if cfg["name"] == "kimi":
+                        # Moonshot runs two regions with non-interchangeable keys:
+                        # a platform.moonshot.cn key 401s against api.moonshot.ai.
+                        hint += (" Moonshot keys are region-specific: a key from "
+                                 "platform.moonshot.cn won't work on api.moonshot.ai — "
+                                 "set QSCREEN_BASE_URL=https://api.moonshot.cn/v1 to use the .cn region.")
                 elif "model" in detail.lower():
                     hint = f" — model {cfg['model']!r} may be invalid for {cfg['name']}; pass --model."
                 raise SystemExit(f"{cfg['name']} provider error HTTP {resp.status_code}: {detail}{hint}")
