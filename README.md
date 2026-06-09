@@ -69,7 +69,20 @@ QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
   if a model id is rejected, the error tells you to pass `--model`.
 - **Point at a different host/port:** `--base-url` (or env `QSCREEN_BASE_URL`) — e.g. a
   remote Ollama or a custom port.
-- `python3 qscreen_ingest.py --list-providers` prints this table.
+- `python3 qscreen_ingest.py --list-providers` prints this table **and a line
+  saying which provider it detects from your `.env` right now** — run it first if
+  a key "isn't working".
+
+> **`.env` not being picked up (esp. on Windows)?** Save it as **plain UTF-8, not
+> "UTF-8 with BOM"** — a BOM glues itself onto the first variable name (so
+> `MOONSHOT_API_KEY` is read as a different key and never detected). The tool now
+> strips a BOM automatically, but some editors still surprise you; `--list-providers`
+> will confirm what's detected.
+
+> **Kimi / Moonshot 401?** Moonshot runs two regions with **non-interchangeable
+> keys**. A key from `platform.moonshot.cn` will not authenticate against the
+> default `api.moonshot.ai` endpoint. To use the `.cn` region, set
+> `QSCREEN_BASE_URL=https://api.moonshot.cn/v1`.
 
 > **Note on Claude Code on the web:** the managed environment's network policy
 > may block LLM providers (e.g. `openrouter.ai`, `api.anthropic.com`). The

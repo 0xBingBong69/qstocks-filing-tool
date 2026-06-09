@@ -516,6 +516,17 @@ def test_call_llm_bad_model_is_actionable(monkeypatch):
     assert "model" in str(ei.value).lower()
 
 
+def test_call_llm_kimi_401_hints_region(monkeypatch):
+    # A platform.moonshot.cn key 401s against the default .ai endpoint. The error
+    # must point at the region split (QSCREEN_BASE_URL=.cn), not just "bad key".
+    import requests
+    monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp(401, text="invalid authentication"))
+    with pytest.raises(SystemExit) as ei:
+        e.call_llm([{"role": "user", "content": "hi"}], llm_args(provider="kimi"))
+    msg = str(ei.value)
+    assert "moonshot.cn" in msg and "QSCREEN_BASE_URL" in msg
+
+
 def test_call_llm_retries_then_succeeds(monkeypatch):
     import requests
     seq = [_Resp(503, text="busy"), _Resp(200, {"choices": [{"message": {"content": "ok"}}]})]

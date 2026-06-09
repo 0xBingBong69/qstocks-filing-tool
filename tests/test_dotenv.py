@@ -57,6 +57,25 @@ def test_parse_dotenv_strips_inline_comment_like_template():
     assert env["QUOTED"] == "v # not-a-comment"
 
 
+def test_parse_dotenv_strips_utf8_bom_on_first_key():
+    # Windows editors (Notepad's "Save as UTF-8") prepend a BOM. Without
+    # stripping it the first key parses as '\ufeffMOONSHOT_API_KEY' and the
+    # provider is never detected — the silent "my .env keeps failing" report.
+    text = "\ufeff" + "MOONSHOT_API_KEY=sk-moon-xyz   # kimi\n"  # leading UTF-8 BOM
+    env = e._parse_dotenv(text)
+    assert "MOONSHOT_API_KEY" in env              # plain key, no BOM glued on
+    assert "\ufeffMOONSHOT_API_KEY" not in env
+    assert env["MOONSHOT_API_KEY"] == "sk-moon-xyz"
+
+
+def test_bom_prefixed_key_is_still_detected(clean_env, monkeypatch):
+    # End-to-end: a BOM'd .env must still resolve to a provider, not "✗ None".
+    for k, v in e._parse_dotenv("\ufeff" + "MOONSHOT_API_KEY=sk-moon-xyz\n").items():
+        monkeypatch.setenv(k, v)
+    assert e.detect_provider() == "kimi"
+    assert e.provider_diagnostic().startswith("✓ Detected provider: kimi")
+
+
 # ── provider_diagnostic ──────────────────────────────────────────────────────
 
 def test_diagnostic_none_when_nothing_set(clean_env):
