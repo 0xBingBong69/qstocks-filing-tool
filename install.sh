@@ -30,31 +30,31 @@ else
   git clone --depth 1 --branch main "$REPO" "$DEST"
 fi
 
-echo "🐍 ensuring python deps (pdfplumber, requests, flask) …"
-python3 -m pip install --quiet --upgrade pdfplumber requests flask
+echo "🐍 ensuring python deps (incl. offline OCR for scanned pages) …"
+python3 -m pip install --quiet --upgrade -r "$DEST/requirements.txt"
 
 echo "🧪 self-test …"
 python3 "$TOOL" --self-test
 
 cat <<EOF
 
-✅ Installed. The tool lives at:
-     $TOOL
+✅ Installed (with offline OCR for scanned pages). The tool lives at:
+     $DEST
 
-ONE-TIME: create $DEST/.env with your keys (set the one for your provider —
-minimax / openrouter / kimi / openai / anthropic; see --list-providers):
-     MINIMAX_API_KEY=...                # or OPENROUTER_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / MOONSHOT_API_KEY
-     INGEST_TOKEN=...                   # qscreen.app ingest token (to upload)
-     QSCREEN_API_URL=https://qscreen.app
+START THE APP — no API key needed:
+     python3 $DEST/qscreen_app.py
+   Your browser opens by itself; drag a PDF in and click Extract. The financial
+   figures — income statement, cash flows, even a scanned/stamped balance sheet —
+   are read offline, on your own computer.
+   (Prefer no terminal at all? Download the ZIP from GitHub and double-click
+   start.command on Mac / start.bat on Windows instead.)
 
-   No key, fully offline? Run a model on your laptop (Ollama / MLX / LM Studio / …)
-   and add --provider ollama — even Gemma 3 270M works in --basic mode (numbers are
-   read from the PDF's tables in code). Or skip the model entirely with --no-llm.
-   Pro mode (--pro) extracts everything but wants a strong model. See --list-providers.
+OPTIONAL — also capture the audit opinion & note texts:
+   Save an API key in the app's ⚙️ Settings panel (minimax / openrouter / kimi /
+   openai / anthropic), or run a local model (Ollama / MLX / LM Studio).
 
-PER FILING — run exactly one command:
+CLI alternative — one command per PDF (also works with no key):
      python3 $TOOL <PDF> --symbol QIBK --sector islamic_bank --year 2024 --period FY
-
    sectors: conventional_bank | islamic_bank | industrial | insurance | other
    add --dry-run to save the JSON without uploading.
 
