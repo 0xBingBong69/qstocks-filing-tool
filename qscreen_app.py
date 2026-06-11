@@ -253,7 +253,7 @@ function updateProvider() {
 function updateMode() {
   if (!modeHint) return;
   if (noLlmEl && noLlmEl.checked) {
-    modeHint.innerHTML = '⚙️ <b>Fully offline.</b> Line items are read straight from the PDF\'s tables — ' +
+    modeHint.innerHTML = '⚙️ <b>Fully offline.</b> Line items are read straight from the PDF tables — ' +
       'no model is called. Audit/notes are skipped. Works with no key and no model running.';
     return;
   }
@@ -262,7 +262,7 @@ function updateMode() {
     modeHint.innerHTML = '🧠 <b>Pro.</b> The model extracts everything (richer notes & segments). ' +
       'Use a strong model — GPT‑4.5+/Claude Sonnet 4+/MiniMax‑M2.';
   } else if (m === 'basic') {
-    modeHint.innerHTML = '🧭 <b>Basic.</b> Numbers are read from the PDF\'s tables in code; the model only ' +
+    modeHint.innerHTML = '🧭 <b>Basic.</b> Numbers are read from the PDF tables in code; the model only ' +
       'fills gaps and classifies the audit opinion. Great for a tiny / local model (e.g. Gemma 3 270M via MLX).';
   } else {
     modeHint.innerHTML = '🧭 <b>Auto (recommended).</b> The numbers are read from the PDF offline — ' +

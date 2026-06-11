@@ -495,3 +495,28 @@ def test_index_has_settings_panel_and_no_year_field(client):
     assert 'id="set_provider"' in h and "saveKey" in h and "DETECTED_PROVIDER" in h
     assert 'name="year" type="number" placeholder="2024" required' not in h   # the required field is gone
     assert 'id="yearfallback"' in h                                           # only the hidden fallback remains
+
+
+def test_page_inline_javascript_parses(client):
+    """The page's inline <script> must be valid JS.
+
+    Regression guard: an unescaped apostrophe in a single-quoted string (PAGE is a
+    plain triple-quoted Python string, so `\\'` renders as a bare `'`) once broke the
+    whole script — leaving the Settings provider dropdown empty and making Extract
+    fall back to a native GET reload instead of POSTing. Validate with `node --check`.
+    """
+    import shutil, subprocess, tempfile, os
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not available to validate page JS")
+    html = client.get("/").get_data(as_text=True)
+    scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+    assert scripts, "no inline <script> found on the page"
+    biggest = max(scripts, key=len)
+    tmp = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False)
+    try:
+        tmp.write(biggest); tmp.close()
+        res = subprocess.run([node, "--check", tmp.name], capture_output=True, text=True)
+        assert res.returncode == 0, f"page inline JS has a syntax error:\n{res.stderr}"
+    finally:
+        os.unlink(tmp.name)
